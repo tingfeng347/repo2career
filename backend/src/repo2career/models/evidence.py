@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 class EvidenceRef(BaseModel):
     id: str
-    kind: Literal["code", "pdf", "metadata"]
+    kind: Literal["code", "pdf", "markdown", "metadata"]
     path: str
     excerpt: str
     start_line: int | None = None

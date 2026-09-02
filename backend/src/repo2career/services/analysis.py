@@ -27,7 +27,7 @@ class AnalysisService:
         job_dir = settings.data_dir / "jobs" / job.id
         source_dir = job_dir / "source"
         report_dir = job_dir / "report"
-        await asyncio.to_thread(source_dir.mkdir, parents=True, exist_ok=True)
+        await asyncio.to_thread(job_dir.mkdir, parents=True, exist_ok=True)
         await progress(AnalysisStage.INGESTING, 10, "Preparing immutable input snapshot")
         parser_name: str | None = None
         if job.source_kind == SourceKind.GITHUB:
@@ -40,7 +40,7 @@ class AnalysisService:
             )
         elif job.source_kind == SourceKind.FOLDER:
             evidence = await self._code_evidence(Path(job.source["path"]), settings, None, progress)
-        else:
+        elif job.source_kind == SourceKind.PDF:
             await progress(AnalysisStage.EXTRACTING, 25, "Parsing PDF")
             requested = PdfParserKind(job.options.get("parser", "auto"))
             document = await PdfParserService(settings).parse(
@@ -53,6 +53,15 @@ class AnalysisService:
                 document.model_dump_json(indent=2),
                 encoding="utf-8",
             )
+        elif job.source_kind == SourceKind.MARKDOWN:
+            await progress(AnalysisStage.EXTRACTING, 25, "Reading Markdown source")
+            evidence = await asyncio.to_thread(
+                self._markdown_evidence,
+                Path(job.source["path"]),
+                str(job.source.get("name") or "document.md"),
+            )
+        else:
+            raise ValueError(f"Unsupported source kind: {job.source_kind}")
         await progress(
             AnalysisStage.ANALYZING, 60, "Synthesizing grounded project findings with DeepSeek"
         )
@@ -107,6 +116,35 @@ class AnalysisService:
             source_summary=f"PDF parsed with {document.parser}; {len(document.pages)} pages",
             references=refs,
             warnings=document.warnings,
+        )
+
+    @staticmethod
+    def _markdown_evidence(path: Path, filename: str) -> AnalysisEvidence:
+        text = path.read_text(encoding="utf-8-sig")
+        evidence_limit = 60000
+        chunk_size = 8000
+        included = text[:evidence_limit]
+        refs = [
+            EvidenceRef(
+                id=f"markdown-{index + 1}",
+                kind="markdown",
+                path=filename,
+                excerpt=included[offset : offset + chunk_size],
+                category="document",
+                confidence=0.98,
+            )
+            for index, offset in enumerate(range(0, len(included), chunk_size))
+        ]
+        warnings = []
+        if len(text) > evidence_limit:
+            warnings.append(
+                f"Markdown evidence was limited to the first {evidence_limit} characters"
+            )
+        return AnalysisEvidence(
+            project_name=Path(filename).stem,
+            source_summary=f"Markdown loaded directly; {len(text)} characters",
+            references=refs,
+            warnings=warnings,
         )
 
     @staticmethod

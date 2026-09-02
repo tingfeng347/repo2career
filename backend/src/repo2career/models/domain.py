@@ -11,6 +11,7 @@ class SourceKind(StrEnum):
     GITHUB = "github"
     FOLDER = "folder"
     PDF = "pdf"
+    MARKDOWN = "markdown"
 
 
 class AnalysisStatus(StrEnum):
@@ -59,6 +60,12 @@ class StageEvent(BaseModel):
 class GithubAnalysisRequest(BaseModel):
     repository_url: str
     ref: str | None = None
+    language: str = "zh-CN"
+    model: str | None = None
+
+
+class LocalFolderAnalysisRequest(BaseModel):
+    path: str
     language: str = "zh-CN"
     model: str | None = None
 
