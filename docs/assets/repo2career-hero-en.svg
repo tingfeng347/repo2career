@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">Repo2Career project analysis workbench</title>
+  <desc id="desc">Turn repositories and PDFs into business flows, architecture notes and interview material.</desc>
+  <style>
+    :root { --paper:#f7f4ee; --ink:#242321; --muted:#706b63; --line:#d8d1c6; --panel:#eee9df; --signal:#b55432; }
+    @media (prefers-color-scheme: dark) { :root { --paper:#171716; --ink:#f0ede6; --muted:#aaa49a; --line:#3d3a35; --panel:#22211e; --signal:#d16b46; } }
+    .sans { font-family: "Noto Sans", "Segoe UI", sans-serif; }
+    .mono { font-family: Consolas, "SFMono-Regular", monospace; }
+  </style>
+  <rect width="1200" height="360" rx="18" fill="var(--paper)"/>
+  <path d="M34 0v360M1166 0v360M0 34h1200M0 326h1200" stroke="var(--line)" stroke-dasharray="2 8" opacity=".75"/>
+  <path d="M64 42h1072M64 304h1072" stroke="var(--line)"/>
+  <g transform="translate(64 60)">
+    <rect width="44" height="44" rx="7" fill="var(--ink)"/><text x="22" y="27" text-anchor="middle" class="mono" font-size="10" font-weight="700" fill="var(--paper)">R/C</text>
+    <rect x="54" y="3" width="7" height="7" fill="var(--signal)"/><rect x="63" y="3" width="7" height="7" fill="var(--line)"/>
+    <text x="84" y="20" class="sans" font-size="22" font-weight="700" fill="var(--ink)">Repo2Career</text><text x="84" y="39" class="mono" font-size="10" letter-spacing="1.4" fill="var(--muted)">PROJECT ANALYSIS WORKBENCH</text>
+  </g>
+  <g class="sans" fill="var(--ink)">
+    <text x="64" y="169" font-size="35" font-weight="650">Turn code into a story</text>
+    <text x="64" y="210" font-size="35" font-weight="650">you can defend in an interview.</text>
+    <text x="66" y="246" font-size="14" fill="var(--muted)">Business flow · Technology choices · Architecture · STAR narrative</text>
+  </g>
+  <g transform="translate(690 66)">
+    <g class="mono" font-size="10" fill="var(--muted)"><text x="0" y="0">01 / INPUT</text><text x="150" y="0">02 / TRACE</text><text x="300" y="0">03 / OUTPUT</text></g>
+    <g transform="translate(0 18)"><rect width="124" height="108" rx="8" fill="var(--panel)" stroke="var(--line)"/><path d="M20 32h80M20 48h62M20 64h72M20 80h44" stroke="var(--muted)" stroke-width="3" stroke-linecap="round" opacity=".7"/><circle cx="102" cy="18" r="4" fill="var(--signal)"/></g>
+    <path d="M136 72h28M286 72h28" stroke="var(--signal)" stroke-width="1.5" stroke-dasharray="4 5"/>
+    <g transform="translate(178 18)"><rect width="124" height="108" rx="8" fill="var(--panel)" stroke="var(--line)"/><circle cx="62" cy="53" r="22" fill="none" stroke="var(--signal)" stroke-width="1.5"/><circle cx="35" cy="82" r="7" fill="none" stroke="var(--muted)"/><circle cx="89" cy="82" r="7" fill="none" stroke="var(--muted)"/><path d="M48 67 39 77M76 67l9 10M43 82h38" stroke="var(--muted)"/></g>
+    <g transform="translate(356 18)"><rect width="124" height="108" rx="8" fill="var(--ink)"/><path d="M20 32h82M20 48h68M20 64h82M20 80h54" stroke="var(--paper)" stroke-width="3" stroke-linecap="round" opacity=".75"/><rect x="20" y="94" width="42" height="4" rx="2" fill="var(--signal)"/></g>
+    <rect y="148" width="480" height="48" rx="8" fill="var(--panel)" stroke="var(--line)"/><text x="18" y="169" class="mono" font-size="10" fill="var(--muted)" letter-spacing="1">ANALYSIS PATH</text><text x="18" y="187" class="mono" font-size="11" fill="var(--ink)">scan</text><text x="72" y="187" class="mono" font-size="11" fill="var(--muted)">→</text><text x="95" y="187" class="mono" font-size="11" fill="var(--ink)">trace</text><text x="157" y="187" class="mono" font-size="11" fill="var(--muted)">→</text><text x="180" y="187" class="mono" font-size="11" fill="var(--ink)">reason</text><text x="252" y="187" class="mono" font-size="11" fill="var(--muted)">→</text><text x="275" y="187" class="mono" font-size="11" fill="var(--signal)">present</text>
+  </g>
+  <text x="64" y="326" class="mono" font-size="10" letter-spacing="1.2" fill="var(--muted)">EVIDENCE FIRST · INTERVIEW READY · SPEC DRIVEN</text>
+</svg>
