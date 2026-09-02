@@ -1,14 +1,54 @@
 import * as Tabs from "@radix-ui/react-tabs"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { ArrowLeft, CircleAlert, FileText, Folder, Loader2, Plus, Settings, Sparkles, X } from "lucide-react"
 import { ReportWorkbench } from "@/components/ReportWorkbench"
 import { ThemeToggle } from "@/components/ThemeToggle"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { cn } from "@/lib/utils"
 import { api, type Job } from "@/services/api"
 
-function StatusPill({ job }: { job: Job }) {
-  return <span className={`status status-${job.status}`}>{job.status}</span>
+const STATUS_LABELS: Record<Job["status"], string> = {
+  queued: "等待中",
+  running: "分析中",
+  interrupted: "已中断",
+  completed: "已完成",
+  failed: "失败",
+  cancelled: "已取消",
+}
+
+function StatusBadge({ job }: { job: Job }) {
+  const tone: Record<Job["status"], string> = {
+    queued: "bg-muted text-muted-foreground",
+    running: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    interrupted: "bg-muted text-muted-foreground",
+    completed: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+    failed: "bg-red-500/10 text-red-600 dark:text-red-400",
+    cancelled: "bg-muted text-muted-foreground",
+  }
+  return (
+    <Badge variant="outline" className={cn("border-transparent font-normal", tone[job.status])}>
+      {job.status === "running" && <Loader2 className="size-3 animate-spin" />}
+      {STATUS_LABELS[job.status]}
+    </Badge>
+  )
+}
+
+function Capability({ name, ready }: { name: string; ready: boolean }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span className={cn("size-1.5 rounded-full", ready ? "bg-emerald-500" : "bg-border")} />
+      {name}
+    </span>
+  )
+}
+
+function sourceName(job: Job) {
+  return String(job.source.name ?? job.source.repo ?? job.source.repository_url ?? job.source_kind)
 }
 
 export default function App() {
@@ -80,91 +120,276 @@ export default function App() {
   }
 
   return (
-    <main className="app-shell">
-      <header className="topbar">
-        <div className="brand-block">
-          <span className="brand-mark" aria-hidden="true">R/C</span>
-          <strong>Repo2Career</strong>
+    <main className="flex h-full flex-col">
+      <header className="grid h-13 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-6 border-b bg-background px-4 sm:px-6">
+        <div className="flex items-center gap-2.5 justify-self-start">
+          <span className="grid size-7 place-items-center rounded-md bg-foreground text-background">
+            <Sparkles className="size-3.5" />
+          </span>
+          <span className="font-heading text-[15px] font-medium tracking-tight">Repo2Career</span>
+          <Badge variant="secondary" className="font-mono text-[10px] font-normal">v0.1</Badge>
         </div>
-        <div className="capability-strip">
-          <span>CodeGraph {capabilities.data?.codegraph.available ? "可用" : "降级模式"}</span>
-          <span>PDF {capabilities.data?.pdf_parser ?? "检查中"}</span>
-          <span>DeepSeek {capabilities.data?.deepseek.configured ? "已配置" : "待配置"}</span>
+        <div className="hidden items-center gap-4 md:flex">
+          <Capability name="CodeGraph" ready={capabilities.data?.codegraph.available ?? false} />
+          <Capability name="PDF" ready={Boolean(capabilities.data?.pdf_parser)} />
+          <Capability name="DeepSeek" ready={capabilities.data?.deepseek.configured ?? false} />
         </div>
-        <div className="header-actions"><ThemeToggle /><Button variant="secondary" onClick={() => setSettingsOpen(true)}>本机配置</Button></div>
+        <div className="flex items-center gap-1 justify-self-end">
+          <ThemeToggle />
+          <Button variant="ghost" size="sm" onClick={() => setSettingsOpen(true)}>
+            <Settings />
+            <span className="hidden sm:inline">配置</span>
+          </Button>
+        </div>
       </header>
 
-      <div className="workspace-grid">
-        <aside className="history-panel">
-          <div className="panel-heading"><div><p className="eyebrow">分析记录</p><span>{jobs.data?.length ?? 0} 个项目</span></div><button onClick={() => setSelectedId(null)}>新建</button></div>
-          <div className="history-list">
+      <div className="flex min-h-0 flex-1">
+        <aside className="flex w-60 shrink-0 flex-col border-r bg-background">
+          <div className="flex items-center justify-between px-3 py-3">
+            <div className="flex items-baseline gap-2">
+              <span className="text-sm font-medium">项目</span>
+              <span className="font-mono text-[10px] text-muted-foreground">{jobs.data?.length ?? 0}</span>
+            </div>
+            <Button variant="ghost" size="icon-sm" aria-label="新建分析" onClick={() => setSelectedId(null)}>
+              <Plus />
+            </Button>
+          </div>
+          <div className="flex-1 space-y-1 overflow-y-auto px-2 pb-2">
             {jobs.data?.map((job) => (
-              <button key={job.id} className={job.id === selectedId ? "history-item active" : "history-item"} onClick={() => setSelectedId(job.id)}>
-                <div><strong>{String(job.source.name ?? job.source.repo ?? job.source_kind)}</strong><StatusPill job={job} /></div>
-                <small>{new Date(job.created_at).toLocaleString()} · {job.progress}%</small>
+              <button
+                key={job.id}
+                onClick={() => setSelectedId(job.id)}
+                className={cn(
+                  "flex w-full flex-col gap-1 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-muted",
+                  job.id === selectedId && "bg-muted",
+                )}
+              >
+                <div className="flex w-full items-center justify-between gap-2">
+                  <span className="min-w-0 truncate text-sm">{sourceName(job)}</span>
+                  <StatusBadge job={job} />
+                </div>
+                <span className="font-mono text-[10px] text-muted-foreground">
+                  {new Date(job.created_at).toLocaleDateString()} · {job.progress}%
+                </span>
               </button>
             ))}
-            {!jobs.data?.length && <p className="empty-copy">尚无分析记录。从右侧选择一个项目来源。</p>}
+            {!jobs.data?.length && (
+              <p className="px-2.5 py-6 text-center text-xs leading-relaxed text-muted-foreground">
+                还没有项目。<br />从右侧开始第一次分析。
+              </p>
+            )}
+          </div>
+          <div className="border-t px-3 py-3 font-mono text-[10px] text-muted-foreground">
+            所有分析记录保存在本机
           </div>
         </aside>
 
-        <section className="main-stage">
+        <section className="min-w-0 flex-1 overflow-y-auto">
           {!selected && (
-            <div className="source-console">
-              <div className="page-header">
-                <div><p className="eyebrow">项目分析</p><h1>新建分析</h1><p>选择代码仓库、本地项目或 PDF，生成带有证据索引的求职报告。</p></div>
-                <div className="language-row"><label>报告语言</label><select value={language} onChange={(event) => setLanguage(event.target.value)}><option value="zh-CN">简体中文</option><option value="en">English</option></select></div>
+            <div className="mx-auto w-full max-w-3xl px-6 py-10">
+              <div className="mb-6 flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">新建分析</p>
+                  <h1 className="font-heading mt-1 text-3xl font-semibold tracking-tight">选择一个项目来源</h1>
+                  <p className="mt-2 text-sm text-muted-foreground">我们会整理其中的技术证据、项目亮点和面试材料。</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="report-language" className="text-xs">报告语言</Label>
+                  <select
+                    id="report-language"
+                    value={language}
+                    onChange={(event) => setLanguage(event.target.value)}
+                    className="h-8 rounded-lg border border-input bg-transparent px-2 pr-6 text-sm text-foreground outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+                  >
+                    <option value="zh-CN">简体中文</option>
+                    <option value="en">English</option>
+                  </select>
+                </div>
               </div>
-              <div className="analysis-layout">
-                <Tabs.Root defaultValue="github" className="source-tabs">
-                  <Tabs.List><Tabs.Trigger value="github">GitHub 仓库</Tabs.Trigger><Tabs.Trigger value="folder">本地目录</Tabs.Trigger><Tabs.Trigger value="pdf">PDF 文档</Tabs.Trigger></Tabs.List>
-                  <Tabs.Content value="github" className="source-form">
-                    <h2>分析 GitHub 仓库</h2><p>支持公开仓库，也可以在配置中添加 Token 访问私有仓库。</p>
-                    <label htmlFor="github-url">仓库地址</label>
-                    <Input id="github-url" placeholder="https://github.com/owner/repository" value={githubUrl} onChange={(event) => setGithubUrl(event.target.value)} />
-                    <Button disabled={!githubUrl || createJob.isPending} onClick={() => createJob.mutate(() => api.github(githubUrl, language))}>开始分析</Button>
+
+              <Card>
+                <Tabs.Root defaultValue="github" className="w-full">
+                  <Tabs.List className="flex items-center gap-1 border-b px-3">
+                    <Tabs.Trigger
+                      value="github"
+                      className="inline-flex items-center justify-center border-b-2 border-transparent px-3 py-2 text-sm font-medium text-muted-foreground outline-none transition-colors hover:text-foreground data-[state=active]:border-foreground data-[state=active]:text-foreground"
+                    >
+                      GitHub 仓库
+                    </Tabs.Trigger>
+                    <Tabs.Trigger
+                      value="folder"
+                      className="inline-flex items-center justify-center border-b-2 border-transparent px-3 py-2 text-sm font-medium text-muted-foreground outline-none transition-colors hover:text-foreground data-[state=active]:border-foreground data-[state=active]:text-foreground"
+                    >
+                      本地目录
+                    </Tabs.Trigger>
+                    <Tabs.Trigger
+                      value="pdf"
+                      className="inline-flex items-center justify-center border-b-2 border-transparent px-3 py-2 text-sm font-medium text-muted-foreground outline-none transition-colors hover:text-foreground data-[state=active]:border-foreground data-[state=active]:text-foreground"
+                    >
+                      PDF 文档
+                    </Tabs.Trigger>
+                  </Tabs.List>
+
+                  <Tabs.Content value="github" className="space-y-3 px-4 py-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">GitHub 仓库</p>
+                      <p className="text-xs text-muted-foreground">输入公开仓库地址；私有仓库可在配置中添加访问令牌。</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="github-url">仓库地址</Label>
+                      <Input
+                        id="github-url"
+                        placeholder="https://github.com/owner/repository"
+                        value={githubUrl}
+                        onChange={(event) => setGithubUrl(event.target.value)}
+                      />
+                    </div>
+                    <Button disabled={!githubUrl || createJob.isPending} onClick={() => createJob.mutate(() => api.github(githubUrl, language))}>
+                      {createJob.isPending ? "正在提交…" : "开始分析"}
+                    </Button>
                   </Tabs.Content>
-                  <Tabs.Content value="folder" className="source-form">
-                    <h2>分析本地项目</h2><p>依赖目录、二进制文件和敏感配置会在上传前被排除。</p>
-                    <input ref={(node) => { folderInput.current = node; node?.setAttribute("webkitdirectory", "") }} type="file" multiple hidden onChange={(event) => submitFolder(event.target.files)} />
-                    <Button onClick={() => folderInput.current?.click()}>选择项目目录</Button>
+
+                  <Tabs.Content value="folder" className="space-y-3 px-4 py-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">本地目录</p>
+                      <p className="text-xs text-muted-foreground">依赖目录、二进制文件和敏感配置会在上传前自动排除。</p>
+                    </div>
+                    <input
+                      ref={(node) => { folderInput.current = node; node?.setAttribute("webkitdirectory", "") }}
+                      type="file"
+                      multiple
+                      hidden
+                      onChange={(event) => submitFolder(event.target.files)}
+                    />
+                    <Button variant="outline" onClick={() => folderInput.current?.click()}>
+                      <Folder /> 选择项目目录
+                    </Button>
                   </Tabs.Content>
-                  <Tabs.Content value="pdf" className="source-form">
-                    <h2>分析 PDF 文档</h2><p>适用于项目说明书、技术方案和产品文档。</p>
-                    <div className="parser-note"><strong>当前解析器</strong><span>{capabilities.data?.mineru.configured ? "MinerU 云解析（失败自动回退 pypdf）" : "pypdf 本地解析，不支持 OCR"}</span></div>
-                    <label className="file-button">选择 PDF<input type="file" accept="application/pdf" onChange={(event) => submitPdf(event.target.files?.[0])} /></label>
+
+                  <Tabs.Content value="pdf" className="space-y-3 px-4 py-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">PDF 文档</p>
+                      <p className="text-xs text-muted-foreground">适用于项目说明书、技术方案、复盘材料与产品文档。</p>
+                    </div>
+                    <div className="rounded-lg border bg-muted/50 px-3 py-2 text-xs">
+                      <span className="font-medium">当前解析器</span>{" "}
+                      <span className="text-muted-foreground">
+                        {capabilities.data?.mineru.configured ? "MinerU 云解析（失败自动回退 pypdf）" : "pypdf 本地解析，不支持 OCR"}
+                      </span>
+                    </div>
+                    <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-input px-2.5 text-sm font-medium transition-colors hover:bg-muted">
+                      <FileText className="size-3.5" /> 选择 PDF
+                      <input type="file" accept="application/pdf" className="hidden" onChange={(event) => submitPdf(event.target.files?.[0])} />
+                    </label>
                   </Tabs.Content>
                 </Tabs.Root>
-                <aside className="analysis-summary"><h2>报告内容</h2><ul><li>完整业务流程与用户角色</li><li>技术栈、架构与关键调用链</li><li>工程难点与证据缺口</li><li>简历要点、STAR 与面试问题</li></ul><div className="privacy-note"><strong>安全边界</strong><p>项目代码只用于静态分析，不会被执行。</p></div></aside>
-              </div>
-              {notice && <p className="notice">{notice}</p>}
+              </Card>
+
+              <Card className="mt-4">
+                <CardHeader>
+                  <CardTitle>报告包含</CardTitle>
+                  <CardDescription>仅静态读取，不执行代码</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <div className="space-y-1 border-l-2 border-border pl-3">
+                      <p className="text-sm font-medium">项目解读</p>
+                      <p className="text-xs text-muted-foreground">业务流程、技术栈与关键调用链</p>
+                    </div>
+                    <div className="space-y-1 border-l-2 border-border pl-3">
+                      <p className="text-sm font-medium">工程亮点</p>
+                      <p className="text-xs text-muted-foreground">技术难点、关键决策与证据边界</p>
+                    </div>
+                    <div className="space-y-1 border-l-2 border-border pl-3">
+                      <p className="text-sm font-medium">求职材料</p>
+                      <p className="text-xs text-muted-foreground">简历要点、STAR 故事与面试问题</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {notice && (
+                <div className="mt-4 flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                  <CircleAlert className="size-3.5" />
+                  {notice}
+                </div>
+              )}
             </div>
           )}
 
           {selected && selected.status !== "completed" && (
-            <div className="progress-console">
-              <button className="text-link" onClick={() => setSelectedId(null)}>返回新建分析</button>
-              <p className="eyebrow">当前分析</p><h1>{String(selected.source.name ?? selected.source.repo ?? selected.source_kind)}</h1>
-              <div className="progress-track"><span style={{ width: `${selected.progress}%` }} /></div>
-              <div className="progress-meta"><strong>{selected.stage}</strong><span>{selected.progress}%</span></div>
-              <p>{selected.error || "正在建立证据链。长仓库和复杂 PDF 可能需要一些时间。"}</p>
-              <div className="action-row">
-                {["running", "queued"].includes(selected.status) && <Button variant="secondary" onClick={() => api.cancel(selected.id).then(() => client.invalidateQueries({ queryKey: ["jobs"] }))}>取消任务</Button>}
-                {["failed", "interrupted", "cancelled"].includes(selected.status) && <Button onClick={() => api.retry(selected.id).then(() => client.invalidateQueries({ queryKey: ["jobs"] }))}>重试任务</Button>}
+            <div className="mx-auto flex w-full max-w-xl flex-col items-center px-6 py-16 text-center">
+              <Button variant="ghost" size="sm" className="mb-8 self-start" onClick={() => setSelectedId(null)}>
+                <ArrowLeft /> 返回新建分析
+              </Button>
+              <div className="mb-6 grid size-16 place-items-center rounded-full border">
+                <Loader2 className="size-5 animate-spin text-muted-foreground" />
+              </div>
+              <p className="text-xs font-medium text-muted-foreground">正在分析</p>
+              <h1 className="font-heading mt-2 text-3xl font-semibold tracking-tight break-words">{sourceName(selected)}</h1>
+              <div className="mt-8 h-1 w-full overflow-hidden rounded-full bg-muted">
+                <div className="h-full bg-foreground transition-[width] duration-300" style={{ width: `${selected.progress}%` }} />
+              </div>
+              <div className="mt-2 flex w-full justify-between font-mono text-[10px] text-muted-foreground uppercase">
+                <span>{selected.stage}</span>
+                <span>{selected.progress}%</span>
+              </div>
+              <p className="mt-6 text-sm text-muted-foreground">{selected.error || "正在建立证据链。大型仓库和复杂文档可能需要一些时间。"}</p>
+              <div className="mt-6 flex gap-2">
+                {["running", "queued"].includes(selected.status) && (
+                  <Button variant="secondary" onClick={() => api.cancel(selected.id).then(() => client.invalidateQueries({ queryKey: ["jobs"] }))}>取消任务</Button>
+                )}
+                {["failed", "interrupted", "cancelled"].includes(selected.status) && (
+                  <Button onClick={() => api.retry(selected.id).then(() => client.invalidateQueries({ queryKey: ["jobs"] }))}>重试任务</Button>
+                )}
               </div>
             </div>
           )}
+
           {selected?.status === "completed" && report.data && <ReportWorkbench report={report.data} jobId={selected.id} />}
         </section>
       </div>
 
-      <nav className="workspace-dock" aria-label="工作台导航">
-        <button className="dock-item is-active" type="button" onClick={() => setSelectedId(null)}><i aria-hidden="true" />新建分析</button>
-        <button className="dock-item" type="button" onClick={() => document.querySelector(".history-panel")?.scrollIntoView({ behavior: "smooth" })}><i aria-hidden="true" />分析记录</button>
-        <button className="dock-item" type="button" onClick={() => setSettingsOpen(true)}><i aria-hidden="true" />本机配置</button>
-      </nav>
-
-      {settingsOpen && <div className="modal-backdrop" role="presentation" onMouseDown={() => setSettingsOpen(false)}><section className="settings-sheet" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}><p className="eyebrow">本机配置</p><h2>模型与解析服务</h2><label>DeepSeek API Key<Input type="password" placeholder="仅保存到本机 .env" onChange={(event) => setSettingsDraft({ ...settingsDraft, DEEPSEEK_API_KEY: event.target.value })} /></label><label>DeepSeek 模型<Input placeholder={capabilities.data?.deepseek.model} onChange={(event) => setSettingsDraft({ ...settingsDraft, DEEPSEEK_MODEL: event.target.value })} /></label><label>MinerU API Key<Input type="password" placeholder="留空时使用 pypdf" onChange={(event) => setSettingsDraft({ ...settingsDraft, MINERU_API_KEY: event.target.value })} /></label><div className="action-row"><Button variant="ghost" onClick={() => setSettingsOpen(false)}>关闭</Button><Button onClick={saveSettings}>保存配置</Button></div></section></div>}
+      {settingsOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-sm" onMouseDown={() => setSettingsOpen(false)}>
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="settings-title"
+            className="flex h-full w-full max-w-md flex-col overflow-y-auto border-l bg-card p-6 shadow-xl"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">本机配置</p>
+                <h2 id="settings-title" className="font-heading mt-1 text-2xl font-semibold">模型与解析服务</h2>
+              </div>
+              <Button variant="ghost" size="icon-sm" aria-label="关闭配置" onClick={() => setSettingsOpen(false)}>
+                <X />
+              </Button>
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">密钥只写入本机环境，不会显示在报告中。</p>
+            <div className="mt-6 space-y-5">
+              <div className="space-y-1.5">
+                <Label>DeepSeek API Key</Label>
+                <Input type="password" placeholder="仅保存到本机 .env" onChange={(event) => setSettingsDraft({ ...settingsDraft, DEEPSEEK_API_KEY: event.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>DeepSeek 模型</Label>
+                <Input placeholder={capabilities.data?.deepseek.model} onChange={(event) => setSettingsDraft({ ...settingsDraft, DEEPSEEK_MODEL: event.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>MinerU API Key</Label>
+                <Input type="password" placeholder="留空时使用 pypdf" onChange={(event) => setSettingsDraft({ ...settingsDraft, MINERU_API_KEY: event.target.value })} />
+              </div>
+            </div>
+            <div className="mt-auto flex justify-end gap-2 pt-6">
+              <Button variant="ghost" onClick={() => setSettingsOpen(false)}>取消</Button>
+              <Button onClick={saveSettings}>保存配置</Button>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   )
 }

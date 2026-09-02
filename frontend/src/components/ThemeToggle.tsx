@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react"
+import { Moon, Sun } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 type Theme = "light" | "dark"
 
@@ -27,14 +29,14 @@ export function ThemeToggle() {
 
   const next = theme === "light" ? "dark" : "light"
   return (
-    <button
+    <Button
       type="button"
-      className="theme-toggle"
+      variant="ghost"
+      size="icon-sm"
       aria-label={`切换为${next === "dark" ? "暗色" : "亮色"}主题`}
       onClick={() => setTheme(next)}
     >
-      <span className="theme-track" aria-hidden="true"><i /></span>
-      <span>{theme === "light" ? "亮色" : "暗色"}</span>
-    </button>
+      {theme === "light" ? <Moon /> : <Sun />}
+    </Button>
   )
 }
