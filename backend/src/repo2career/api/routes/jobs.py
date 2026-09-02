@@ -31,6 +31,17 @@ async def get_job(
     return job
 
 
+@router.delete("/{job_id}")
+async def delete_job(
+    job_id: str, manager: Annotated[JobManager, Depends(job_manager)]
+) -> dict[str, str]:
+    try:
+        await manager.delete(job_id)
+    except KeyError as exc:
+        raise HTTPException(404, "Analysis job not found") from exc
+    return {"job_id": job_id}
+
+
 @router.get("/{job_id}/events")
 async def stream_events(
     job_id: str,

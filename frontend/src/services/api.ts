@@ -1,6 +1,6 @@
 export type Job = {
   id: string
-  source_kind: "github" | "folder" | "pdf"
+  source_kind: "github" | "folder" | "pdf" | "markdown"
   status: "queued" | "running" | "interrupted" | "completed" | "failed" | "cancelled"
   stage: string
   progress: number
@@ -38,13 +38,16 @@ export const api = {
   github: (repository_url: string, language: string) => request<{ job_id: string }>("/api/v1/analyses/github", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ repository_url, language }),
   }),
-  upload: (kind: "folder" | "pdf", data: FormData) => request<{ job_id: string }>(`/api/v1/analyses/${kind}`, { method: "POST", body: data }),
+  localFolder: (path: string, language: string) => request<{ job_id: string }>("/api/v1/analyses/local-folder", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path, language }),
+  }),
+  upload: (kind: "pdf" | "markdown", data: FormData) => request<{ job_id: string }>(`/api/v1/analyses/${kind}`, { method: "POST", body: data }),
   cancel: (id: string) => request<Job>(`/api/v1/analyses/${id}/cancel`, { method: "POST" }),
   retry: (id: string) => request<Job>(`/api/v1/analyses/${id}/retry`, { method: "POST" }),
+  delete: (id: string) => request<{ job_id: string }>(`/api/v1/analyses/${id}`, { method: "DELETE" }),
   report: async (id: string) => {
     const response = await fetch(`/api/v1/analyses/${id}/artifacts/report.md`)
     if (!response.ok) throw new Error("Report is not ready")
     return response.text()
   },
 }
-

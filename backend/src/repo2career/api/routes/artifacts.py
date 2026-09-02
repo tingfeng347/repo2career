@@ -9,8 +9,30 @@ from fastapi.responses import FileResponse
 from repo2career.api.dependencies import job_repository
 from repo2career.core.config import Settings
 from repo2career.db.jobs import JobRepository
+from repo2career.models.domain import SourceKind
 
 router = APIRouter(prefix="/analyses", tags=["artifacts"])
+
+
+@router.get("/{job_id}/source.pdf")
+async def pdf_source(
+    job_id: str, repository: Annotated[JobRepository, Depends(job_repository)]
+) -> FileResponse:
+    job = await repository.get(job_id)
+    if not job:
+        raise HTTPException(404, "Analysis job not found")
+    if job.source_kind != SourceKind.PDF:
+        raise HTTPException(404, "PDF source not found")
+    source_path = job.source.get("path")
+    source = Path(source_path) if isinstance(source_path, str) else None
+    if not source or source.suffix.lower() != ".pdf" or not source.is_file():
+        raise HTTPException(404, "PDF source not found")
+    return FileResponse(
+        source,
+        media_type="application/pdf",
+        filename=str(job.source.get("name") or source.name),
+        content_disposition_type="inline",
+    )
 
 
 async def _report_root(job_id: str, repository: JobRepository) -> Path:

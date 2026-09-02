@@ -93,6 +93,13 @@ class JobRepository:
             ).fetchall()
         return [self._job(row) for row in rows]
 
+    async def delete(self, job_id: str) -> bool:
+        async with aiosqlite.connect(self.path) as db:
+            await db.execute("DELETE FROM events WHERE job_id=?", (job_id,))
+            cursor = await db.execute("DELETE FROM jobs WHERE id=?", (job_id,))
+            await db.commit()
+        return cursor.rowcount > 0
+
     async def update(
         self,
         job_id: str,

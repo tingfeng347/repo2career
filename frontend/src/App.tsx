@@ -1,8 +1,8 @@
 import * as Tabs from "@radix-ui/react-tabs"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useEffect, useMemo, useRef, useState } from "react"
-import { ArrowLeft, CircleAlert, FileText, Folder, Loader2, Plus, Settings, Sparkles, X } from "lucide-react"
-import { ReportWorkbench } from "@/components/ReportWorkbench"
+import { useEffect, useMemo, useState } from "react"
+import { ArrowLeft, CircleAlert, FileText, Folder, Loader2, Plus, Settings, Sparkles, Trash2, X } from "lucide-react"
+import { PdfReportWorkbench, ReportWorkbench } from "@/components/ReportWorkbench"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -55,11 +55,12 @@ export default function App() {
   const client = useQueryClient()
   const [selectedId, setSelectedId] = useState<string | null>()
   const [githubUrl, setGithubUrl] = useState("")
+  const [folderPath, setFolderPath] = useState("")
   const [language, setLanguage] = useState("zh-CN")
   const [notice, setNotice] = useState("")
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [deletingJob, setDeletingJob] = useState<Job | null>(null)
   const [settingsDraft, setSettingsDraft] = useState<Record<string, string>>({})
-  const folderInput = useRef<HTMLInputElement>(null)
 
   const jobs = useQuery({ queryKey: ["jobs"], queryFn: api.jobs, refetchInterval: 2500 })
   const capabilities = useQuery({ queryKey: ["capabilities"], queryFn: api.capabilities })
@@ -91,15 +92,27 @@ export default function App() {
     onError: (error) => setNotice(error.message),
   })
 
-  const submitFolder = (files: FileList | null) => {
-    if (!files?.length) return
-    const data = new FormData()
-    Array.from(files).forEach((file) => {
-      data.append("files", file)
-      data.append("paths", file.webkitRelativePath || file.name)
-    })
-    data.append("language", language)
-    createJob.mutate(() => api.upload("folder", data))
+  const deleteJob = useMutation({
+    mutationFn: (id: string) => api.delete(id),
+    onSuccess: ({ job_id }) => {
+      if (selectedId === job_id) {
+        setSelectedId(jobs.data?.find((job) => job.id !== job_id)?.id ?? null)
+      }
+      client.removeQueries({ queryKey: ["report", job_id] })
+      client.invalidateQueries({ queryKey: ["jobs"] })
+      setDeletingJob(null)
+      setNotice("项目记录和临时文件已删除。")
+    },
+    onError: (error) => {
+      setDeletingJob(null)
+      setNotice(error.message)
+    },
+  })
+
+  const submitFolder = () => {
+    const path = folderPath.trim()
+    if (!path) return
+    createJob.mutate(() => api.localFolder(path, language))
   }
 
   const submitPdf = (file?: File) => {
@@ -109,6 +122,14 @@ export default function App() {
     data.append("language", language)
     data.append("parser", "auto")
     createJob.mutate(() => api.upload("pdf", data))
+  }
+
+  const submitMarkdown = (file?: File) => {
+    if (!file) return
+    const data = new FormData()
+    data.append("file", file)
+    data.append("language", language)
+    createJob.mutate(() => api.upload("markdown", data))
   }
 
   const saveSettings = async () => {
@@ -156,22 +177,33 @@ export default function App() {
           </div>
           <div className="flex-1 space-y-1 overflow-y-auto px-2 pb-2">
             {jobs.data?.map((job) => (
-              <button
-                key={job.id}
-                onClick={() => setSelectedId(job.id)}
-                className={cn(
-                  "flex w-full flex-col gap-1 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-muted",
-                  job.id === selectedId && "bg-muted",
-                )}
-              >
-                <div className="flex w-full items-center justify-between gap-2">
-                  <span className="min-w-0 truncate text-sm">{sourceName(job)}</span>
-                  <StatusBadge job={job} />
-                </div>
-                <span className="font-mono text-[10px] text-muted-foreground">
-                  {new Date(job.created_at).toLocaleDateString()} · {job.progress}%
-                </span>
-              </button>
+              <div key={job.id} className="group relative">
+                <button
+                  onClick={() => setSelectedId(job.id)}
+                  className={cn(
+                    "flex w-full flex-col gap-1 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-muted",
+                    job.id === selectedId && "bg-muted",
+                  )}
+                >
+                  <div className="flex w-full items-center justify-between gap-2">
+                    <span className="min-w-0 truncate text-sm">{sourceName(job)}</span>
+                    <StatusBadge job={job} />
+                  </div>
+                  <span className="pr-7 font-mono text-[10px] text-muted-foreground">
+                    {new Date(job.created_at).toLocaleDateString()} · {job.progress}%
+                  </span>
+                </button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="absolute right-1 bottom-1 text-muted-foreground opacity-60 hover:text-destructive focus-visible:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                  aria-label={`删除项目 ${sourceName(job)}`}
+                  title="删除项目"
+                  onClick={() => setDeletingJob(job)}
+                >
+                  <Trash2 />
+                </Button>
+              </div>
             ))}
             {!jobs.data?.length && (
               <p className="px-2.5 py-6 text-center text-xs leading-relaxed text-muted-foreground">
@@ -184,9 +216,12 @@ export default function App() {
           </div>
         </aside>
 
-        <section className="min-w-0 flex-1 overflow-y-auto">
+        <section className={cn(
+          "min-w-0 flex-1 overflow-y-auto",
+          selected?.source_kind === "pdf" && selected.status === "completed" && "hide-scrollbar lg:overflow-hidden",
+        )}>
           {!selected && (
-            <div className="mx-auto w-full max-w-3xl px-6 py-10">
+            <div className="mx-auto w-full max-w-4xl px-6 py-10">
               <div className="mb-6 flex items-end justify-between gap-4">
                 <div>
                   <p className="text-xs font-medium text-muted-foreground">新建分析</p>
@@ -209,7 +244,7 @@ export default function App() {
 
               <Card>
                 <Tabs.Root defaultValue="github" className="w-full">
-                  <Tabs.List className="flex items-center gap-1 border-b px-3">
+                  <Tabs.List className="hide-scrollbar flex items-center gap-1 overflow-x-auto border-b px-3">
                     <Tabs.Trigger
                       value="github"
                       className="inline-flex items-center justify-center border-b-2 border-transparent px-3 py-2 text-sm font-medium text-muted-foreground outline-none transition-colors hover:text-foreground data-[state=active]:border-foreground data-[state=active]:text-foreground"
@@ -227,6 +262,12 @@ export default function App() {
                       className="inline-flex items-center justify-center border-b-2 border-transparent px-3 py-2 text-sm font-medium text-muted-foreground outline-none transition-colors hover:text-foreground data-[state=active]:border-foreground data-[state=active]:text-foreground"
                     >
                       PDF 文档
+                    </Tabs.Trigger>
+                    <Tabs.Trigger
+                      value="markdown"
+                      className="inline-flex items-center justify-center border-b-2 border-transparent px-3 py-2 text-sm font-medium text-muted-foreground outline-none transition-colors hover:text-foreground data-[state=active]:border-foreground data-[state=active]:text-foreground"
+                    >
+                      Markdown
                     </Tabs.Trigger>
                   </Tabs.List>
 
@@ -252,17 +293,19 @@ export default function App() {
                   <Tabs.Content value="folder" className="space-y-3 px-4 py-4">
                     <div className="space-y-1">
                       <p className="text-sm font-medium">本地目录</p>
-                      <p className="text-xs text-muted-foreground">依赖目录、二进制文件和敏感配置会在上传前自动排除。</p>
+                      <p className="text-xs text-muted-foreground">直接读取本机目录，不会上传或复制文件；依赖、二进制和敏感配置会被跳过。</p>
                     </div>
-                    <input
-                      ref={(node) => { folderInput.current = node; node?.setAttribute("webkitdirectory", "") }}
-                      type="file"
-                      multiple
-                      hidden
-                      onChange={(event) => submitFolder(event.target.files)}
-                    />
-                    <Button variant="outline" onClick={() => folderInput.current?.click()}>
-                      <Folder /> 选择项目目录
+                    <div className="space-y-1.5">
+                      <Label htmlFor="local-folder-path">本地目录路径</Label>
+                      <Input
+                        id="local-folder-path"
+                        placeholder="/Users/name/projects/my-project"
+                        value={folderPath}
+                        onChange={(event) => setFolderPath(event.target.value)}
+                      />
+                    </div>
+                    <Button disabled={!folderPath.trim() || createJob.isPending} onClick={submitFolder}>
+                      <Folder /> {createJob.isPending ? "正在提交…" : "开始分析"}
                     </Button>
                   </Tabs.Content>
 
@@ -280,6 +323,22 @@ export default function App() {
                     <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-input px-2.5 text-sm font-medium transition-colors hover:bg-muted">
                       <FileText className="size-3.5" /> 选择 PDF
                       <input type="file" accept="application/pdf" className="hidden" onChange={(event) => submitPdf(event.target.files?.[0])} />
+                    </label>
+                  </Tabs.Content>
+
+                  <Tabs.Content value="markdown" className="space-y-3 px-4 py-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Markdown 文档</p>
+                      <p className="text-xs text-muted-foreground">直接读取 UTF-8 Markdown 并交给大模型生成报告，不经过 PDF 解析器。</p>
+                    </div>
+                    <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-input px-2.5 text-sm font-medium transition-colors hover:bg-muted">
+                      <FileText className="size-3.5" /> 选择 Markdown
+                      <input
+                        type="file"
+                        accept=".md,text/markdown,text/plain"
+                        className="hidden"
+                        onChange={(event) => submitMarkdown(event.target.files?.[0])}
+                      />
                     </label>
                   </Tabs.Content>
                 </Tabs.Root>
@@ -346,9 +405,44 @@ export default function App() {
             </div>
           )}
 
-          {selected?.status === "completed" && report.data && <ReportWorkbench report={report.data} jobId={selected.id} />}
+          {selected?.status === "completed" && report.data && (
+            selected.source_kind === "pdf"
+              ? <PdfReportWorkbench report={report.data} jobId={selected.id} />
+              : <ReportWorkbench report={report.data} jobId={selected.id} />
+          )}
         </section>
       </div>
+
+      {deletingJob && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 px-4" onMouseDown={() => !deleteJob.isPending && setDeletingJob(null)}>
+          <section
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-project-title"
+            aria-describedby="delete-project-description"
+            className="w-full max-w-sm rounded-lg border bg-card p-5 shadow-xl"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 id="delete-project-title" className="text-lg font-semibold">删除项目？</h2>
+                <p id="delete-project-description" className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  “{sourceName(deletingJob)}”的分析记录、报告和本应用创建的临时文件将从本机永久删除。原始本地目录不会被删除。
+                </p>
+              </div>
+              <Button variant="ghost" size="icon-sm" aria-label="关闭删除确认" disabled={deleteJob.isPending} onClick={() => setDeletingJob(null)}>
+                <X />
+              </Button>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <Button variant="ghost" disabled={deleteJob.isPending} onClick={() => setDeletingJob(null)}>取消</Button>
+              <Button variant="destructive" disabled={deleteJob.isPending} onClick={() => deleteJob.mutate(deletingJob.id)}>
+                {deleteJob.isPending ? <><Loader2 className="animate-spin" /> 正在删除</> : <><Trash2 /> 删除项目</>}
+              </Button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {settingsOpen && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-sm" onMouseDown={() => setSettingsOpen(false)}>
