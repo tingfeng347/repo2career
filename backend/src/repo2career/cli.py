@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import json
 import shutil
-import uuid
 from pathlib import Path
 from typing import Annotated
 
@@ -12,7 +11,6 @@ import typer
 from repo2career.core.config import Settings, effective_settings, update_env
 from repo2career.db.jobs import JobRepository
 from repo2career.inputs.github import parse_github_url
-from repo2career.inputs.workspace import should_include
 from repo2career.models.domain import AnalysisStatus, SourceKind
 from repo2career.parsers.base import PdfParserKind
 from repo2career.services.analysis import AnalysisService
@@ -73,23 +71,10 @@ def analyze_folder(
         raise typer.BadParameter("Folder does not exist")
 
     async def run() -> None:
-        settings = Settings.load()
-        snapshot = settings.data_dir / "incoming" / str(uuid.uuid4())
-
-        def copy() -> None:
-            for item in source.rglob("*"):
-                relative = item.relative_to(source)
-                if not item.is_file() or not should_include(relative):
-                    continue
-                target = snapshot / relative
-                target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(item, target)
-
-        await asyncio.to_thread(copy)
         manager = await _manager()
         job = await manager.submit(
             SourceKind.FOLDER,
-            {"path": str(snapshot), "name": source.name},
+            {"path": str(source), "name": source.name},
             {"language": language, "model": model},
         )
         await _wait(manager, job.id)

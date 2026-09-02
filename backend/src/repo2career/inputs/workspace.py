@@ -75,6 +75,25 @@ def should_include(path: Path) -> bool:
     )
 
 
+def project_stats(root: Path, settings: Settings) -> dict[str, int]:
+    count = 0
+    total = 0
+    max_total = settings.max_project_size_mb * 1024 * 1024
+    max_file = settings.max_source_file_size_mb * 1024 * 1024
+    for path in root.rglob("*"):
+        if path.is_symlink() or not path.is_file():
+            continue
+        relative = path.relative_to(root)
+        if not should_include(relative):
+            continue
+        size = path.stat().st_size
+        count += 1
+        total += size
+        if count > settings.max_project_files or size > max_file or total > max_total:
+            raise ValueError("Repository exceeds configured limits")
+    return {"accepted_files": count, "bytes": total}
+
+
 async def save_uploads(
     files: list[UploadFile], paths: list[str], root: Path, settings: Settings
 ) -> dict[str, int]:

@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import re
+import shutil
 from pathlib import Path
-from urllib.parse import urlparse
-
-import httpx
+from urllib.parse import quote, urlparse
 
 from repo2career.core.config import Settings
-from repo2career.inputs.workspace import extract_zip_safely
+from repo2career.inputs.workspace import project_stats
 
 GITHUB_PATH = re.compile(r"^/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?/?$")
 
@@ -27,25 +26,35 @@ async def fetch_github_repository(
     url: str, ref: str | None, destination: Path, settings: Settings
 ) -> dict[str, str | int]:
     owner, repo = parse_github_url(url)
-    headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
+    if not shutil.which("git"):
+        raise RuntimeError("Git is required to analyze GitHub repositories")
+
+    clone_url = f"https://github.com/{owner}/{repo}.git"
     if settings.github_token:
-        headers["Authorization"] = f"Bearer {settings.github_token}"
-    async with httpx.AsyncClient(headers=headers, timeout=120, follow_redirects=True) as client:
-        metadata_response = await client.get(f"https://api.github.com/repos/{owner}/{repo}")
-        metadata_response.raise_for_status()
-        metadata = metadata_response.json()
-        requested_ref = ref or metadata["default_branch"]
-        commit_response = await client.get(
-            f"https://api.github.com/repos/{owner}/{repo}/commits/{requested_ref}"
-        )
-        commit_response.raise_for_status()
-        revision = commit_response.json()["sha"]
-        archive_response = await client.get(
-            f"https://api.github.com/repos/{owner}/{repo}/zipball/{revision}"
-        )
-        archive_response.raise_for_status()
-        archive = destination.parent / "repository.zip"
-        await asyncio.to_thread(archive.write_bytes, archive_response.content)
-    stats = await asyncio.to_thread(extract_zip_safely, archive, destination, settings)
-    await asyncio.to_thread(archive.unlink, missing_ok=True)
+        token = quote(settings.github_token, safe="")
+        clone_url = f"https://x-access-token:{token}@github.com/{owner}/{repo}.git"
+
+    await asyncio.to_thread(destination.parent.mkdir, parents=True, exist_ok=True)
+    if await asyncio.to_thread(destination.exists):
+        await asyncio.to_thread(shutil.rmtree, destination)
+    clone_args = ["clone", "--depth", "1", "--single-branch"]
+    if ref:
+        clone_args.extend(["--branch", ref])
+    clone_args.extend([clone_url, str(destination)])
+    await _run_git(*clone_args)
+    revision = (await _run_git("-C", str(destination), "rev-parse", "HEAD")).strip()
+    stats = await asyncio.to_thread(project_stats, destination, settings)
     return {"owner": owner, "repo": repo, "revision": revision, **stats}
+
+
+async def _run_git(*args: str) -> str:
+    process = await asyncio.create_subprocess_exec(
+        "git",
+        *args,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, _ = await process.communicate()
+    if process.returncode:
+        raise ValueError("Git operation failed. Verify repository access and the requested ref.")
+    return stdout.decode("utf-8", errors="replace")
