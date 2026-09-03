@@ -18,6 +18,22 @@ export type Capabilities = {
   pdf_parser: "mineru" | "pypdf"
 }
 
+export type EvidenceRef = {
+  id: string
+  kind: "code" | "pdf" | "markdown" | "metadata"
+  path: string
+  excerpt: string
+  start_line?: number | null
+  end_line?: number | null
+  page?: number | null
+  bbox?: [number, number, number, number] | null
+}
+
+export type EvidenceBundle = {
+  tree: string[]
+  references: EvidenceRef[]
+}
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init)
   if (!response.ok) {
@@ -48,6 +64,17 @@ export const api = {
   report: async (id: string) => {
     const response = await fetch(`/api/v1/analyses/${id}/artifacts/report.md`)
     if (!response.ok) throw new Error("Report is not ready")
+    return response.text()
+  },
+  evidence: (id: string) => request<EvidenceBundle>(
+    `/api/v1/analyses/${id}/artifacts/evidence.json`,
+  ),
+  sourceCode: (id: string, path: string) => request<{ path: string; content: string }>(
+    `/api/v1/analyses/${id}/source/file?path=${encodeURIComponent(path)}`,
+  ),
+  sourceMarkdown: async (id: string) => {
+    const response = await fetch(`/api/v1/analyses/${id}/source.md`)
+    if (!response.ok) throw new Error("Markdown source is not available")
     return response.text()
   },
 }
