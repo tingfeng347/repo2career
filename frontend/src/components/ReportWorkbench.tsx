@@ -6,7 +6,7 @@ type Props = { report: string; jobId: string }
 
 const INTERNAL_SECTIONS = /(?:项目快照与分析范围|风险、证据缺口和置信度|证据索引|Project Snapshot and Analysis Scope|Risks, Evidence Gaps, and Confidence|Evidence Index)/i
 
-function presentableReport(report: string): string {
+export function presentableReport(report: string): string {
   const output: string[] = []
   let hidden = false
   let sectionNumber = 0
