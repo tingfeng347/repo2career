@@ -13,10 +13,16 @@ class PdfParserKind(StrEnum):
     PYPDF = "pypdf"
 
 
+class ParsedBlock(BaseModel):
+    text: str
+    bbox: tuple[float, float, float, float]
+
+
 class ParsedPage(BaseModel):
     number: int
     text: str
     warning: str | None = None
+    blocks: list[ParsedBlock] = Field(default_factory=list)
 
 
 class ParsedDocument(BaseModel):

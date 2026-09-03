@@ -99,18 +99,38 @@ class AnalysisService:
 
     @staticmethod
     def _pdf_evidence(document) -> AnalysisEvidence:
-        refs = [
-            EvidenceRef(
-                id=f"pdf-page-{page.number}",
-                kind="pdf",
-                path=document.filename,
-                excerpt=page.text[:12000],
-                page=page.number,
-                category="document",
-                confidence=0.95 if page.text else 0.2,
+        refs: list[EvidenceRef] = []
+        for page in document.pages:
+            if page.blocks:
+                refs.extend(
+                    EvidenceRef(
+                        id=f"pdf-page-{page.number}-block-{index}",
+                        kind="pdf",
+                        path=document.filename,
+                        excerpt=block.text[:8000],
+                        page=page.number,
+                        bbox=block.bbox,
+                        category="document",
+                        confidence=0.98,
+                    )
+                    for index, block in enumerate(page.blocks, start=1)
+                )
+                continue
+            chunks = _text_chunks(page.text, max_chars=2200)
+            if not chunks:
+                chunks = [("", 1, 1)]
+            refs.extend(
+                EvidenceRef(
+                    id=f"pdf-page-{page.number}-part-{index}",
+                    kind="pdf",
+                    path=document.filename,
+                    excerpt=chunk,
+                    page=page.number,
+                    category="document",
+                    confidence=0.95 if chunk else 0.2,
+                )
+                for index, (chunk, _, _) in enumerate(chunks, start=1)
             )
-            for page in document.pages
-        ]
         return AnalysisEvidence(
             project_name=Path(document.filename).stem,
             source_summary=f"PDF parsed with {document.parser}; {len(document.pages)} pages",
@@ -122,18 +142,21 @@ class AnalysisService:
     def _markdown_evidence(path: Path, filename: str) -> AnalysisEvidence:
         text = path.read_text(encoding="utf-8-sig")
         evidence_limit = 60000
-        chunk_size = 8000
         included = text[:evidence_limit]
         refs = [
             EvidenceRef(
                 id=f"markdown-{index + 1}",
                 kind="markdown",
                 path=filename,
-                excerpt=included[offset : offset + chunk_size],
+                excerpt=chunk,
+                start_line=start_line,
+                end_line=end_line,
                 category="document",
                 confidence=0.98,
             )
-            for index, offset in enumerate(range(0, len(included), chunk_size))
+            for index, (chunk, start_line, end_line) in enumerate(
+                _text_chunks(included, max_chars=2200)
+            )
         ]
         warnings = []
         if len(text) > evidence_limit:
@@ -160,3 +183,42 @@ class AnalysisService:
         if missing:
             raise RuntimeError(f"Report bundle is incomplete: {', '.join(missing)}")
         json.loads((report_dir / "manifest.json").read_text(encoding="utf-8"))
+
+
+def _text_chunks(text: str, max_chars: int) -> list[tuple[str, int, int]]:
+    """Split documents into citation-sized, line-addressable evidence blocks."""
+    lines = text.splitlines()
+    chunks: list[tuple[str, int, int]] = []
+    current: list[str] = []
+    start_line = 1
+
+    def flush(end_line: int) -> None:
+        nonlocal current, start_line
+        value = "\n".join(current).strip()
+        if value:
+            chunks.append((value, start_line, end_line))
+        current = []
+
+    for line_number, line in enumerate(lines, start=1):
+        proposed = "\n".join([*current, line])
+        if current and len(proposed) > max_chars:
+            flush(line_number - 1)
+            start_line = line_number
+        elif not current:
+            start_line = line_number
+        if len(line) > max_chars:
+            if current:
+                flush(line_number - 1)
+            chunks.extend(
+                (line[offset : offset + max_chars], line_number, line_number)
+                for offset in range(0, len(line), max_chars)
+            )
+            start_line = line_number + 1
+            continue
+        current.append(line)
+        if not line.strip() and len("\n".join(current)) >= max_chars // 2:
+            flush(line_number)
+            start_line = line_number + 1
+    if current:
+        flush(len(lines))
+    return chunks

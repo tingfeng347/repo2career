@@ -13,6 +13,7 @@ class EvidenceRef(BaseModel):
     start_line: int | None = None
     end_line: int | None = None
     page: int | None = None
+    bbox: tuple[float, float, float, float] | None = None
     revision: str | None = None
     category: str = "general"
     confidence: float = Field(default=1.0, ge=0, le=1)

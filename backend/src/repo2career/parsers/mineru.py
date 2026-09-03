@@ -10,7 +10,7 @@ from pathlib import Path
 import httpx
 
 from repo2career.core.config import Settings
-from repo2career.parsers.base import ParsedDocument, ParsedPage, PdfParserKind
+from repo2career.parsers.base import ParsedBlock, ParsedDocument, ParsedPage, PdfParserKind
 
 
 class MineruCloudParser:
@@ -101,6 +101,14 @@ class MineruCloudParser:
                 if not names:
                     raise RuntimeError("MinerU result archive contains no Markdown")
                 markdown = archive.read(sorted(names, key=len)[0]).decode("utf-8", errors="replace")
+                middle_files = [
+                    name for name in archive.namelist() if name.lower().endswith("_middle.json")
+                ]
+                if middle_files:
+                    payload = json.loads(archive.read(middle_files[0]))
+                    pages = MineruCloudParser._middle_pages(payload)
+                    if pages:
+                        return markdown, pages
                 content_lists = [
                     name
                     for name in archive.namelist()
@@ -116,21 +124,125 @@ class MineruCloudParser:
         return markdown, MineruCloudParser._pages(markdown)
 
     @staticmethod
+    def _middle_pages(payload: object) -> list[ParsedPage]:
+        if not isinstance(payload, dict):
+            return []
+        pdf_info = payload.get("pdf_info")
+        if not isinstance(pdf_info, list):
+            return []
+        pages: list[ParsedPage] = []
+        for fallback_index, page in enumerate(pdf_info):
+            if not isinstance(page, dict):
+                continue
+            page_index = page.get("page_idx", page.get("page_no", fallback_index))
+            blocks = page.get("preproc_blocks", page.get("para_blocks", []))
+            if not isinstance(blocks, list):
+                continue
+            parsed_blocks: list[ParsedBlock] = []
+            for block in blocks:
+                if not isinstance(block, dict):
+                    continue
+                parsed_blocks.extend(MineruCloudParser._middle_leaf_blocks(block))
+            if parsed_blocks:
+                pages.append(
+                    ParsedPage(
+                        number=int(page_index) + 1,
+                        text="\n\n".join(block.text for block in parsed_blocks),
+                        blocks=parsed_blocks,
+                    )
+                )
+        return pages
+
+    @staticmethod
+    def _middle_leaf_blocks(block: dict) -> list[ParsedBlock]:
+        nested = block.get("blocks")
+        if isinstance(nested, list):
+            children = [
+                parsed
+                for item in nested
+                if isinstance(item, dict)
+                for parsed in MineruCloudParser._middle_leaf_blocks(item)
+            ]
+            if children:
+                return children
+        lines = block.get("lines")
+        if isinstance(lines, list):
+            line_texts: list[str] = []
+            for line in lines:
+                if not isinstance(line, dict):
+                    continue
+                spans = line.get("spans")
+                if not isinstance(spans, list):
+                    continue
+                text = "".join(
+                    str(span.get("content", ""))
+                    for span in spans
+                    if isinstance(span, dict) and span.get("type") in {None, "text"}
+                ).strip()
+                if text:
+                    line_texts.append(text)
+            if line_texts:
+                bbox = MineruCloudParser._bbox(block.get("bbox"))
+                if bbox:
+                    return [ParsedBlock(text="\n".join(line_texts), bbox=bbox)]
+        text = MineruCloudParser._block_text(block)
+        bbox = MineruCloudParser._bbox(block.get("bbox"))
+        return [ParsedBlock(text=text, bbox=bbox)] if text and bbox else []
+
+    @staticmethod
     def _content_pages(payload: object) -> list[ParsedPage]:
         if not isinstance(payload, list):
             return []
-        grouped: dict[int, list[str]] = defaultdict(list)
+        grouped_text: dict[int, list[str]] = defaultdict(list)
+        grouped_blocks: dict[int, list[ParsedBlock]] = defaultdict(list)
         for item in payload:
             if not isinstance(item, dict):
                 continue
             page_index = item.get("page_idx", item.get("page_no", item.get("page", 0)))
-            text = item.get("text") or item.get("content")
-            if isinstance(text, str) and text.strip():
-                grouped[int(page_index) + 1].append(text.strip())
+            text = MineruCloudParser._block_text(item)
+            bbox = MineruCloudParser._bbox(item.get("bbox"))
+            number = int(page_index) + 1
+            if text:
+                grouped_text[number].append(text)
+                if bbox:
+                    grouped_blocks[number].append(ParsedBlock(text=text, bbox=bbox))
         return [
-            ParsedPage(number=number, text="\n\n".join(parts))
-            for number, parts in sorted(grouped.items())
+            ParsedPage(
+                number=number,
+                text="\n\n".join(parts),
+                blocks=grouped_blocks[number],
+            )
+            for number, parts in sorted(grouped_text.items())
         ]
+
+    @staticmethod
+    def _block_text(item: dict) -> str:
+        for key in ("text", "table_body", "code_body", "equation"):
+            value = item.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        list_items = item.get("list_items")
+        if isinstance(list_items, list):
+            return "\n".join(str(value) for value in list_items if str(value).strip()).strip()
+        content = item.get("content")
+        if isinstance(content, str):
+            return content.strip()
+        if isinstance(content, dict):
+            values = [value for value in content.values() if isinstance(value, str)]
+            return "\n".join(values).strip()
+        return ""
+
+    @staticmethod
+    def _bbox(value: object) -> tuple[float, float, float, float] | None:
+        if not isinstance(value, list) or len(value) != 4:
+            return None
+        if not all(isinstance(coordinate, (int, float)) for coordinate in value):
+            return None
+        coordinates = tuple(float(coordinate) for coordinate in value)
+        x0, y0, x1, y1 = coordinates
+        if not (0 <= x0 < x1 <= 1000 and 0 <= y0 < y1 <= 1000):
+            return None
+        return coordinates
 
     @staticmethod
     def _pages(markdown: str) -> list[ParsedPage]:

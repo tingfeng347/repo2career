@@ -92,6 +92,8 @@ async def test_markdown_analysis_bypasses_pdf_parsers(
     manifest = json.loads((report_dir / "manifest.json").read_text(encoding="utf-8"))
     assert evidence["references"][0]["kind"] == "markdown"
     assert "direct Markdown" in evidence["references"][0]["excerpt"]
+    assert evidence["references"][0]["start_line"] == 1
+    assert evidence["references"][0]["end_line"] == 3
     assert manifest["source_kind"] == "markdown"
     assert manifest["parser"] is None
     assert AnalysisStage.EXTRACTING in stages
