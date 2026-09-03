@@ -388,3 +388,126 @@
   background: color-mix(in srgb, var(--evidence-color) 19%, transparent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--evidence-color) 16%, transparent);
 }
+
+.source-empty {
+  display: grid;
+  min-height: 16rem;
+  flex: 1;
+  place-items: center;
+  color: var(--muted-foreground);
+  font-size: 0.8rem;
+}
+
+.source-empty span,
+.source-empty small {
+  display: block;
+  text-align: center;
+}
+
+.source-empty small {
+  max-width: 28rem;
+  margin-top: 0.4rem;
+  color: color-mix(in srgb, var(--muted-foreground) 72%, transparent);
+  font-family: var(--system-font-mono);
+  font-size: 0.65rem;
+  overflow-wrap: anywhere;
+}
+
+.pdf-source-viewer {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.source-toolbar {
+  display: flex;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted-foreground);
+  font-family: var(--system-font-mono);
+  font-size: 0.68rem;
+}
+
+.source-toolbar button {
+  display: inline-flex;
+  width: 1.65rem;
+  height: 1.65rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.35rem;
+}
+
+.source-toolbar button:hover:not(:disabled) {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.source-toolbar button:disabled {
+  opacity: 0.3;
+}
+
+.source-toolbar svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.source-toolbar-separator {
+  width: 1px;
+  height: 1rem;
+  margin: 0 0.35rem;
+  background: var(--border);
+}
+
+.pdf-stage {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding: 1.5rem;
+}
+
+.pdf-page {
+  position: relative;
+  margin: 0 auto;
+  background: white;
+  box-shadow: 0 4px 22px rgb(0 0 0 / 9%);
+}
+
+.pdf-page canvas {
+  display: block;
+}
+
+.pdf-highlight {
+  position: absolute;
+  z-index: 2;
+  padding: 0;
+  border: 1px solid #4f86f7;
+  border-radius: 1px;
+  background: transparent;
+  pointer-events: auto;
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.pdf-highlight:hover,
+.pdf-highlight[data-active="true"] {
+  background: rgb(79 134 247 / 14%);
+  box-shadow: 0 0 0 1px rgb(79 134 247 / 18%);
+}
+
+.pdf-highlight-label {
+  position: absolute;
+  top: -1.35rem;
+  left: -1px;
+  padding: 0.12rem 0.4rem;
+  border-radius: 2px 2px 0 0;
+  background: #3478f6;
+  color: white;
+  font-size: 0.7rem;
+  line-height: 1.1rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
