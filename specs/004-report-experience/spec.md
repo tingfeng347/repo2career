@@ -15,6 +15,7 @@ A user can navigate a consistent report, inspect evidence beside claims and down
 **Acceptance Scenarios**:
 1. **Given** completed analysis, **When** the report opens, **Then** its sections, diagrams and parser/tool provenance are visible.
 2. **Given** a supported claim, **When** its evidence is selected, **Then** the relevant code range or PDF page is shown.
+3. **Given** a PDF or Markdown source, **When** a report citation is selected, **Then** the matching source block is brought into view and highlighted with the citation color.
 
 ### User Story 2 - Turn evidence into interview material (Priority: P2)
 A user receives resume bullets, a STAR narrative and interview questions grounded in the same project evidence.
@@ -41,6 +42,10 @@ A terminal user can submit sources, monitor jobs and locate reports without the 
 - **FR-005**: Users MUST be able to choose simplified Chinese or English, with Chinese as default.
 - **FR-006**: Users MUST be able to download Markdown, diagrams, evidence and a manifest as one report bundle.
 - **FR-007**: Web and CLI output MUST have the same content structure.
+- **FR-008**: PDF evidence MUST retain MinerU page and normalized bounding-box coordinates when available.
+- **FR-009**: Markdown evidence MUST retain its source line range.
+- **FR-010**: The WebUI MUST use a stable color per evidence identifier on both source and report panes.
+- **FR-011**: PDF highlighting MUST fall back to text matching, then page-level highlighting when block coordinates are unavailable.
 
 ### Key Entities
 - **Report Manifest**: Source, tool provenance, language, model, artifacts and warnings.
@@ -52,8 +57,8 @@ A terminal user can submit sources, monitor jobs and locate reports without the 
 - **SC-002**: One hundred percent of major factual claims are evidence-linked or explicitly qualified.
 - **SC-003**: Users can reach any report section or its evidence in at most two interactions.
 - **SC-004**: CLI and web runs over the same fixture pass the same report structure validator.
+- **SC-005**: A PDF or Markdown citation reaches its highlighted source location in one interaction.
 
 ## Assumptions
 - Reports are read-only in version one.
 - PDF export and collaborative editing are outside scope.
-

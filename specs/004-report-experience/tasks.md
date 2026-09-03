@@ -22,6 +22,11 @@
 ## Phase 6: Polish
 - [x] T010 Add responsive styling and frontend tests in frontend/src/styles.css and frontend/src/App.test.tsx
 - [x] T011 Document setup and operation in README.md
+- [x] T012 [US1] Split PDF and Markdown evidence into addressable source blocks
+- [x] T013 [US1] Preserve MinerU normalized bounding boxes and Markdown line ranges
+- [x] T014 [US1] Add original Markdown artifact access and evidence loading APIs
+- [x] T015 [US1] Implement PDF.js and Markdown source viewers with color-linked citations
+- [x] T016 Add evidence-linking backend and frontend regression tests
 
 ## Dependencies
 T001-T003 precede all user stories. US1 and US3 consume the same APIs; US2 extends report content.
