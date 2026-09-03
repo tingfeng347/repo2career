@@ -365,3 +365,26 @@
   border-bottom: 1px solid var(--border);
   text-align: left;
 }
+
+.evidence-citation {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 0.16rem;
+  border: 1px solid color-mix(in srgb, var(--evidence-color) 72%, transparent);
+  border-radius: 0.3rem;
+  background: color-mix(in srgb, var(--evidence-color) 10%, transparent);
+  padding: 0.08rem 0.34rem;
+  color: color-mix(in srgb, var(--evidence-color) 86%, var(--foreground));
+  font-family: var(--system-font-sans);
+  font-size: 0.68rem;
+  font-weight: 650;
+  line-height: 1.35;
+  vertical-align: 0.08em;
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.evidence-citation:hover,
+.evidence-citation[data-active="true"] {
+  background: color-mix(in srgb, var(--evidence-color) 19%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--evidence-color) 16%, transparent);
+}
