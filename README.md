@@ -14,23 +14,24 @@
 
 </div>
 
-Repo2Career 分析 GitHub 仓库、本地项目目录或 PDF，还原业务流程、技术选型、架构与调用链，生成适合简历、STAR 讲述和技术面试的可追溯报告。
+Repo2Career 分析 GitHub 仓库、本地项目目录、PDF 或 Markdown，还原业务流程、技术选型、架构与调用链，生成适合简历、STAR 讲述和技术面试的可追溯报告。
 
 ## 核心能力
 
 | 环节 | 能力 |
 | --- | --- |
-| 输入 | GitHub 公有/私有仓库、本地目录、PDF |
+| 输入 | GitHub 公有/私有仓库、本地目录、PDF、Markdown |
 | 代码分析 | CodeGraph 调用链分析；不可用时确定性扫描降级 |
 | PDF 解析 | MinerU 云解析；未配置 Key 时自动使用本地 pypdf |
 | 推理 | DeepSeek 模型与 API 地址可配置，结论受证据约束 |
 | 任务 | FastAPI 异步队列、SQLite 恢复、SSE 进度、取消与重试 |
 | 交互 | React WebUI 与 Typer CLI 共用同一分析管线 |
+| 溯源 | 报告引用联动原始 PDF 页块或 Markdown 行区间 |
 | 输出 | 中英文 Markdown、Mermaid、证据 JSON、清单与 ZIP 报告包 |
 
 ```mermaid
 flowchart LR
-    Source[GitHub / 本地目录 / PDF] --> Ingest[安全快照]
+    Source[GitHub / 本地目录 / PDF / Markdown] --> Ingest[安全快照]
     Ingest --> Evidence[CodeGraph / MinerU / pypdf]
     Evidence --> Reason[DeepSeek]
     Reason --> Report[求职与面试报告]
@@ -52,7 +53,7 @@ GitHub Actions 会在 Ubuntu、macOS 和 Windows 上执行后端检查、测试�
 ### 前置环境
 
 - [uv](https://docs.astral.sh/uv/) 与 Python 3.12+
-- [Node.js LTS](https://nodejs.org/)
+- [Node.js 22.13+ 或当前 LTS](https://nodejs.org/)
 - CodeGraph，可选但推荐
 - Archify，可选；未配置时输出 Mermaid
 

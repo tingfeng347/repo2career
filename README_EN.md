@@ -14,23 +14,24 @@
 
 </div>
 
-Repo2Career analyzes GitHub repositories, local projects, and PDFs to reconstruct business flows, technology choices, architecture, and call paths, then produces traceable material for resumes, STAR narratives, and technical interviews.
+Repo2Career analyzes GitHub repositories, local projects, PDFs, and Markdown documents to reconstruct business flows, technology choices, architecture, and call paths, then produces traceable material for resumes, STAR narratives, and technical interviews.
 
 ## Features
 
 | Stage | Capability |
 | --- | --- |
-| Input | Public or private GitHub repositories, local folders, and PDFs |
+| Input | Public or private GitHub repositories, local folders, PDFs, and Markdown |
 | Code | CodeGraph call-path analysis with deterministic scanning fallback |
 | PDF | MinerU cloud parsing with automatic local pypdf fallback when no key is set |
 | Reasoning | Configurable DeepSeek model and endpoint with evidence-constrained output |
 | Jobs | Async FastAPI queue, SQLite recovery, SSE progress, cancellation, and retry |
 | Clients | React WebUI and Typer CLI sharing one analysis pipeline |
+| Traceability | Report citations linked to PDF page blocks or Markdown line ranges |
 | Output | Chinese or English Markdown, Mermaid, evidence JSON, manifest, and ZIP bundle |
 
 ```mermaid
 flowchart LR
-    Source[GitHub / Local folder / PDF] --> Ingest[Safe snapshot]
+    Source[GitHub / Local folder / PDF / Markdown] --> Ingest[Safe snapshot]
     Ingest --> Evidence[CodeGraph / MinerU / pypdf]
     Evidence --> Reason[DeepSeek]
     Reason --> Report[Career and interview report]
@@ -52,7 +53,7 @@ GitHub Actions verifies the backend, tests, and frontend production build on Ubu
 ### Prerequisites
 
 - [uv](https://docs.astral.sh/uv/) and Python 3.12+
-- [Node.js LTS](https://nodejs.org/)
+- [Node.js 22.13+ or the current LTS](https://nodejs.org/)
 - CodeGraph, optional but recommended
 - Archify, optional; Mermaid remains available without it
 

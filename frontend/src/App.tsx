@@ -2,7 +2,8 @@ import * as Tabs from "@radix-ui/react-tabs"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useMemo, useState } from "react"
 import { ArrowLeft, CircleAlert, FileText, Folder, Loader2, Plus, Settings, Sparkles, Trash2, X } from "lucide-react"
-import { PdfReportWorkbench, ReportWorkbench } from "@/components/ReportWorkbench"
+import { CodeReportWorkbench } from "@/components/CodeReportWorkbench"
+import { DocumentReportWorkbench } from "@/components/DocumentReportWorkbench"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -218,7 +219,8 @@ export default function App() {
 
         <section className={cn(
           "min-w-0 flex-1 overflow-y-auto",
-          selected?.source_kind === "pdf" && selected.status === "completed" && "hide-scrollbar lg:overflow-hidden",
+          (["pdf", "markdown", "github", "folder"].includes(selected?.source_kind ?? ""))
+            && selected?.status === "completed" && "hide-scrollbar lg:overflow-hidden",
         )}>
           {!selected && (
             <div className="mx-auto w-full max-w-4xl px-6 py-10">
@@ -406,9 +408,9 @@ export default function App() {
           )}
 
           {selected?.status === "completed" && report.data && (
-            selected.source_kind === "pdf"
-              ? <PdfReportWorkbench report={report.data} jobId={selected.id} />
-              : <ReportWorkbench report={report.data} jobId={selected.id} />
+            selected.source_kind === "pdf" || selected.source_kind === "markdown"
+              ? <DocumentReportWorkbench report={report.data} jobId={selected.id} sourceKind={selected.source_kind} />
+              : <CodeReportWorkbench report={report.data} jobId={selected.id} />
           )}
         </section>
       </div>
