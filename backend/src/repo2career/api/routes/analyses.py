@@ -35,7 +35,7 @@ async def analyze_github(
     job = await manager.submit(
         SourceKind.GITHUB,
         {"repository_url": request.repository_url, "ref": request.ref},
-        {"language": request.language, "model": request.model},
+        {"language": request.language, "model": request.model, "template_id": request.template_id},
     )
     return JobAccepted(job_id=job.id)
 
@@ -51,7 +51,7 @@ async def analyze_local_folder(
     job = await manager.submit(
         SourceKind.FOLDER,
         {"path": str(root), "name": root.name},
-        {"language": request.language, "model": request.model},
+        {"language": request.language, "model": request.model, "template_id": request.template_id},
     )
     return JobAccepted(job_id=job.id)
 
@@ -63,6 +63,7 @@ async def analyze_pdf(
     parser: Annotated[PdfParserKind, Form()] = PdfParserKind.AUTO,
     language: Annotated[str, Form()] = "zh-CN",
     model: Annotated[str | None, Form()] = None,
+    template_id: Annotated[str, Form()] = "career-deep-dive",
     password: Annotated[str | None, Form()] = None,
 ) -> JobAccepted:
     settings = Settings.load()
@@ -85,7 +86,7 @@ async def analyze_pdf(
     job = await manager.submit(
         SourceKind.PDF,
         {"path": str(target), "name": file.filename or target.name, "bytes": total},
-        {"language": language, "model": model, "parser": parser},
+        {"language": language, "model": model, "parser": parser, "template_id": template_id},
         {"password": password} if password else None,
     )
     return JobAccepted(job_id=job.id)
@@ -97,6 +98,7 @@ async def analyze_markdown(
     manager: Annotated[JobManager, Depends(job_manager)],
     language: Annotated[str, Form()] = "zh-CN",
     model: Annotated[str | None, Form()] = None,
+    template_id: Annotated[str, Form()] = "career-deep-dive",
 ) -> JobAccepted:
     settings = Settings.load()
     filename = file.filename or "document.md"
@@ -132,6 +134,6 @@ async def analyze_markdown(
     job = await manager.submit(
         SourceKind.MARKDOWN,
         {"path": str(target), "name": filename, "bytes": total},
-        {"language": language, "model": model},
+        {"language": language, "model": model, "template_id": template_id},
     )
     return JobAccepted(job_id=job.id)

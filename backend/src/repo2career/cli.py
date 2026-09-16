@@ -13,6 +13,7 @@ from repo2career.db.jobs import JobRepository
 from repo2career.inputs.github import parse_github_url
 from repo2career.models.domain import AnalysisStatus, SourceKind
 from repo2career.parsers.base import PdfParserKind
+from repo2career.reports.templates import DEFAULT_TEMPLATE_ID
 from repo2career.services.analysis import AnalysisService
 from repo2career.services.jobs import JobManager
 
@@ -46,6 +47,7 @@ def analyze_github(
     ref: Annotated[str | None, typer.Option()] = None,
     language: Annotated[str, typer.Option()] = "zh-CN",
     model: Annotated[str | None, typer.Option()] = None,
+    template: Annotated[str, typer.Option("--template")] = DEFAULT_TEMPLATE_ID,
 ) -> None:
     async def run() -> None:
         parse_github_url(url)
@@ -53,7 +55,7 @@ def analyze_github(
         job = await manager.submit(
             SourceKind.GITHUB,
             {"repository_url": url, "ref": ref},
-            {"language": language, "model": model},
+            {"language": language, "model": model, "template_id": template},
         )
         await _wait(manager, job.id)
 
@@ -65,6 +67,7 @@ def analyze_folder(
     path: Path,
     language: Annotated[str, typer.Option()] = "zh-CN",
     model: Annotated[str | None, typer.Option()] = None,
+    template: Annotated[str, typer.Option("--template")] = DEFAULT_TEMPLATE_ID,
 ) -> None:
     source = path.resolve()
     if not source.is_dir():
@@ -75,7 +78,7 @@ def analyze_folder(
         job = await manager.submit(
             SourceKind.FOLDER,
             {"path": str(source), "name": source.name},
-            {"language": language, "model": model},
+            {"language": language, "model": model, "template_id": template},
         )
         await _wait(manager, job.id)
 
@@ -88,6 +91,7 @@ def analyze_pdf(
     parser: Annotated[PdfParserKind, typer.Option()] = PdfParserKind.AUTO,
     language: Annotated[str, typer.Option()] = "zh-CN",
     model: Annotated[str | None, typer.Option()] = None,
+    template: Annotated[str, typer.Option("--template")] = DEFAULT_TEMPLATE_ID,
     password: Annotated[str | None, typer.Option(prompt=False, hide_input=True)] = None,
 ) -> None:
     source = path.resolve()
@@ -99,7 +103,7 @@ def analyze_pdf(
         job = await manager.submit(
             SourceKind.PDF,
             {"path": str(source), "name": source.name},
-            {"language": language, "model": model, "parser": parser},
+            {"language": language, "model": model, "parser": parser, "template_id": template},
             {"password": password} if password else None,
         )
         await _wait(manager, job.id)

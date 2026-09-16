@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import zipfile
 from pathlib import Path
 
@@ -14,8 +15,10 @@ def render_report(
     assets.mkdir(parents=True, exist_ok=True)
     mermaid = _architecture_mermaid(content, evidence, manifest.language)
     (assets / "architecture.mmd").write_text(mermaid, encoding="utf-8")
-    report = _markdown(content, evidence, manifest, mermaid)
-    (output / "report.md").write_text(report, encoding="utf-8")
+    trace_report = _clean_report_markdown(content.markdown, evidence)
+    public_report = _strip_evidence_metadata(trace_report)
+    (output / "report.trace.md").write_text(trace_report, encoding="utf-8")
+    (output / "report.md").write_text(public_report, encoding="utf-8")
     (output / "evidence.json").write_text(evidence.model_dump_json(indent=2), encoding="utf-8")
     bundle_members = ["report.md", "evidence.json", "manifest.json", "assets/architecture.mmd"]
     manifest.artifacts = [*bundle_members, "report-bundle.zip"]
@@ -25,101 +28,37 @@ def render_report(
             bundle.write(output / relative, arcname=relative)
 
 
-def _bullets(values: list[str], empty: str = "证据不足，未生成。") -> str:
-    return "\n".join(f"- {value}" for value in values) if values else f"- {empty}"
+def _clean_report_markdown(markdown: str, evidence: AnalysisEvidence) -> str:
+    """Keep provenance machine-readable without showing it in rendered Markdown."""
+    report = markdown
+    for reference in sorted(evidence.references, key=lambda item: len(item.id), reverse=True):
+        report = re.sub(
+            rf"\s*\[{re.escape(reference.id)}\]",
+            f" <!-- evidence:{reference.id} -->",
+            report,
+        )
 
-
-def _markdown(
-    content: ReportContent, evidence: AnalysisEvidence, manifest: ReportManifest, mermaid: str
-) -> str:
-    english = manifest.language.lower().startswith("en")
-    headings = (
-        [
-            "One-minute Project Introduction",
-            "Business Context, Actors, and Core Value",
-            "Complete End-to-end Business Flow",
-            "Functional Modules and Use Cases",
-            "Technology Choices and Rationale",
-            "System Architecture",
-            "Call Paths, Data Flows, APIs, and Data Models",
-            "Engineering Challenges, Trade-offs, and Highlights",
-            "Security, Performance, Reliability, and Maintainability",
-            "Resume-ready Project Bullets",
-            "STAR Project Narrative",
-            "Interview Questions and Follow-ups",
-        ]
-        if english
-        else [
-            "一分钟项目介绍",
-            "业务背景、用户角色与核心价值",
-            "完整端到端业务流程",
-            "功能模块与用例",
-            "技术栈及选型依据",
-            "系统架构",
-            "核心调用链、数据流、接口与数据模型",
-            "关键工程难点、权衡和亮点",
-            "安全、性能、可靠性与可维护性",
-            "简历项目描述",
-            "STAR 项目讲述稿",
-            "面试问题与追问",
-        ]
+    report = re.sub(r">?\s*基于仓库/文档证据与调用关系分析生成。", "", report)
+    report = re.sub(
+        r">?\s*优先写清项目边界、业务价值、关键链路与工程取舍；没有证据的数据不要猜测。",
+        "",
+        report,
     )
-    title = (
-        f"{content.project_name} Project Analysis Report"
-        if english
-        else f"{content.project_name} 项目分析报告"
+    report = re.sub(r"(?m)^\s*>\s*$\n?", "", report)
+    report = re.sub(r"\n{3,}", "\n\n", report).strip()
+    return report + "\n"
+
+
+def _strip_evidence_metadata(markdown: str) -> str:
+    """Return the export-safe Markdown with all evidence metadata removed."""
+    report = re.sub(
+        r"\s*<!--\s*evidence:[A-Za-z0-9][A-Za-z0-9_.:-]*\s*-->",
+        "",
+        markdown,
     )
-    actors = "Actors" if english else "用户角色"
-    empty = "Insufficient evidence." if english else "证据不足，未生成。"
-    return f"""# {title}
-
-## 1. {headings[0]}
-
-{content.elevator_pitch}
-
-## 2. {headings[1]}
-
-{content.business_context}
-
-### {actors}
-{_bullets(content.actors, empty)}
-
-## 3. {headings[2]}
-{_bullets(content.business_flows, empty)}
-
-## 4. {headings[3]}
-{_bullets(content.features, empty)}
-
-## 5. {headings[4]}
-{_bullets(content.technology_choices, empty)}
-
-## 6. {headings[5]}
-
-{content.architecture}
-
-```mermaid
-{mermaid}
-```
-
-## 7. {headings[6]}
-{_bullets(content.data_and_interfaces, empty)}
-
-## 8. {headings[7]}
-{_bullets(content.engineering_challenges, empty)}
-
-## 9. {headings[8]}
-{_bullets(content.quality_attributes, empty)}
-
-## 10. {headings[9]}
-{_bullets(content.resume_bullets, empty)}
-
-## 11. {headings[10]}
-
-{content.star_narrative}
-
-## 12. {headings[11]}
-{_bullets(content.interview_questions, empty)}
-"""
+    report = re.sub(r"[ \t]+\n", "\n", report)
+    report = re.sub(r"\n{3,}", "\n\n", report).strip()
+    return report + "\n"
 
 
 def _architecture_mermaid(content: ReportContent, evidence: AnalysisEvidence, language: str) -> str:

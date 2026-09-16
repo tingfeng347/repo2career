@@ -27,11 +27,14 @@ export function evidenceStyle(id: string): CSSProperties {
   return { "--evidence-color": evidenceColor(id) } as CSSProperties
 }
 
-export function linkEvidenceCitations(markdown: string, references: EvidenceRef[]): string {
+export function linkEvidenceMetadata(markdown: string, references: EvidenceRef[]): string {
   const ids = new Set(references.map((reference) => reference.id))
-  return markdown.replace(/\[([A-Za-z0-9][A-Za-z0-9_.:-]*)\]/g, (token, id: string) => (
-    ids.has(id) ? `[${id}](#evidence-${encodeURIComponent(id)})` : token
-  ))
+  const link = (token: string, id: string) => (
+    ids.has(id) ? `[↗](#evidence-${encodeURIComponent(id)})` : token
+  )
+  return markdown
+    .replace(/<!--\s*evidence:([A-Za-z0-9][A-Za-z0-9_.:-]*)\s*-->/g, link)
+    .replace(/\s*\[([A-Za-z0-9][A-Za-z0-9_.:-]*)\]/g, link)
 }
 
 export function evidenceLabel(reference: EvidenceRef): string {

@@ -53,7 +53,7 @@ test("shows the original PDF beside its generated Markdown", async () => {
   fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
     const url = String(input)
     if (url.includes("capabilities")) return defaultFetch(input)
-    if (url.endsWith("report.md")) return new Response("# 报告\n\n## 摘要\n内容 [pdf-page-1-part-1]")
+    if (url.endsWith("report.trace.md")) return new Response("# 报告\n\n## 摘要\n内容 [pdf-page-1-part-1]")
     if (url.endsWith("evidence.json")) {
       return new Response(JSON.stringify({ references: [{
         id: "pdf-page-1-part-1",
@@ -89,7 +89,7 @@ test("links generated Markdown citations to original Markdown lines", async () =
   fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
     const url = String(input)
     if (url.includes("capabilities")) return defaultFetch(input)
-    if (url.endsWith("report.md")) return new Response("# 报告\n\n核心能力 [markdown-1]")
+    if (url.endsWith("report.trace.md")) return new Response("# 报告\n\n核心能力 [markdown-1]")
     if (url.endsWith("source.md")) return new Response("# Project\n\nCore capability")
     if (url.endsWith("evidence.json")) {
       return new Response(JSON.stringify({ references: [{
@@ -107,7 +107,7 @@ test("links generated Markdown citations to original Markdown lines", async () =
   render(<QueryClientProvider client={new QueryClient()}><App /></QueryClientProvider>)
 
   expect(await screen.findByText("原始 Markdown")).toBeInTheDocument()
-  const citation = await screen.findByRole("button", { name: "1–3 行" })
+  const citation = await screen.findByRole("button", { name: "查看证据" })
   fireEvent.click(citation)
   expect(screen.getByRole("button", { name: "查看引用：1–3 行" })).toHaveAttribute("data-active", "true")
 })
@@ -126,7 +126,7 @@ test("jumps from a report citation to the referenced code tree node and lines", 
   fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
     const url = String(input)
     if (url.includes("capabilities")) return defaultFetch(input)
-    if (url.endsWith("report.md")) return new Response("# 报告\n\n调用入口 [code-entry]")
+    if (url.endsWith("report.trace.md")) return new Response("# 报告\n\n调用入口 [code-entry]")
     if (url.endsWith("evidence.json")) {
       return new Response(JSON.stringify({
         tree: ["README.md", "src/main.py"],
@@ -147,10 +147,10 @@ test("jumps from a report citation to the referenced code tree node and lines", 
   render(<QueryClientProvider client={new QueryClient()}><App /></QueryClientProvider>)
 
   await waitFor(() => expect(screen.getByTitle("README.md")).toHaveAttribute("data-active", "true"))
-  const citation = screen.getByRole("button", { name: "main.py:2–3" })
+  const citation = screen.getByRole("button", { name: "查看证据" })
   fireEvent.click(citation)
 
-  await waitFor(() => expect(screen.getByRole("button", { name: "main.py:2–3" })).toHaveAttribute("data-active", "true"))
+  await waitFor(() => expect(screen.getByRole("button", { name: "查看证据" })).toHaveAttribute("data-active", "true"))
   expect(await screen.findByText("src/main.py")).toBeInTheDocument()
   expect(screen.getByTitle("src")).toHaveAttribute("aria-expanded", "true")
   await waitFor(() => expect(screen.getByTitle("src/main.py")).toHaveAttribute("data-active", "true"))
@@ -207,7 +207,7 @@ test("submits a local path without uploading directory files", async () => {
     expect.objectContaining({
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path: "/tmp/project", language: "zh-CN" }),
+      body: JSON.stringify({ path: "/tmp/project", language: "zh-CN", template_id: "career-deep-dive" }),
     }),
   ))
   expect(document.querySelector('input[type="file"][multiple]')).toBeNull()

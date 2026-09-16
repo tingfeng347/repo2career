@@ -62,12 +62,14 @@ class GithubAnalysisRequest(BaseModel):
     ref: str | None = None
     language: str = "zh-CN"
     model: str | None = None
+    template_id: str = "career-deep-dive"
 
 
 class LocalFolderAnalysisRequest(BaseModel):
     path: str
     language: str = "zh-CN"
     model: str | None = None
+    template_id: str = "career-deep-dive"
 
 
 class JobAccepted(BaseModel):

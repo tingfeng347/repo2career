@@ -7,7 +7,7 @@ from pathlib import Path
 from urllib.parse import quote, urlparse
 
 from repo2career.core.config import Settings
-from repo2career.inputs.workspace import project_stats
+from repo2career.inputs.workspace import project_stats, remove_path
 
 GITHUB_PATH = re.compile(r"^/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?/?$")
 
@@ -36,7 +36,7 @@ async def fetch_github_repository(
 
     await asyncio.to_thread(destination.parent.mkdir, parents=True, exist_ok=True)
     if await asyncio.to_thread(destination.exists):
-        await asyncio.to_thread(shutil.rmtree, destination)
+        await asyncio.to_thread(remove_path, destination)
     clone_args = ["clone", "--depth", "1", "--single-branch"]
     if ref:
         clone_args.extend(["--branch", ref])

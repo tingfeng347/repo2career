@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import shutil
 import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
@@ -9,6 +8,7 @@ from pathlib import Path
 
 from repo2career.core.config import Settings
 from repo2career.db.jobs import JobRepository
+from repo2career.inputs.workspace import remove_path
 from repo2career.models.domain import (
     AnalysisJob,
     AnalysisStage,
@@ -192,7 +192,4 @@ class JobManager:
 
     @staticmethod
     def _remove_path(path: Path) -> None:
-        if path.is_dir():
-            shutil.rmtree(path)
-        else:
-            path.unlink(missing_ok=True)
+        remove_path(path)

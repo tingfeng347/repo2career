@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from repo2career.api.routes import analyses, artifacts, jobs, settings
+from repo2career.api.routes import analyses, artifacts, jobs, settings, templates
 from repo2career.core.config import Settings, project_root
 from repo2career.db.jobs import JobRepository
 from repo2career.services.analysis import AnalysisService
@@ -51,6 +51,7 @@ def create_app() -> FastAPI:
     app.include_router(jobs.router, prefix="/api/v1")
     app.include_router(artifacts.router, prefix="/api/v1")
     app.include_router(settings.router, prefix="/api/v1")
+    app.include_router(templates.router, prefix="/api/v1")
     frontend = project_root() / "frontend" / "dist"
     if frontend.is_dir() and hasattr(app, "frontend"):
         app.frontend("/", directory=frontend)

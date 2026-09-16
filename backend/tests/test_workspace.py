@@ -1,4 +1,5 @@
 import asyncio
+import shutil
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -10,7 +11,12 @@ from repo2career.api.routes.analyses import analyze_local_folder
 from repo2career.core.config import Settings
 from repo2career.inputs import github
 from repo2career.inputs.github import fetch_github_repository, parse_github_url
-from repo2career.inputs.workspace import project_stats, safe_relative_path, should_include
+from repo2career.inputs.workspace import (
+    project_stats,
+    remove_path,
+    safe_relative_path,
+    should_include,
+)
 from repo2career.models.domain import LocalFolderAnalysisRequest, SourceKind
 
 
@@ -49,6 +55,29 @@ def test_project_stats_enforces_source_limits(tmp_path: Path) -> None:
         project_stats(tmp_path, settings)
 
 
+def test_remove_path_retries_windows_style_permission_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "source"
+    target.mkdir()
+    (target / "pack.idx").write_text("pack")
+    real_rmtree = shutil.rmtree
+    calls = 0
+
+    def flaky_rmtree(path, *args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise PermissionError(5, "Access denied", str(target / "pack.idx"))
+        return real_rmtree(path, *args, **kwargs)
+
+    monkeypatch.setattr("repo2career.inputs.workspace.shutil.rmtree", flaky_rmtree)
+    remove_path(target, delay=0)
+
+    assert calls == 2
+    assert not target.exists()
+
+
 @pytest.mark.asyncio
 async def test_local_folder_route_uses_existing_directory_without_copy(tmp_path: Path) -> None:
     captured: dict[str, object] = {}
@@ -66,7 +95,7 @@ async def test_local_folder_route_uses_existing_directory_without_copy(tmp_path:
     assert captured == {
         "kind": SourceKind.FOLDER,
         "source": {"path": str(tmp_path), "name": tmp_path.name},
-        "options": {"language": "en", "model": None},
+        "options": {"language": "en", "model": None, "template_id": "career-deep-dive"},
     }
 
 

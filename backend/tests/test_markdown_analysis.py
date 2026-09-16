@@ -46,7 +46,7 @@ async def test_markdown_upload_creates_direct_document_job(
     )
     assert uploaded_text == "# Project\n\nDirect input"
     assert source["name"] == "project.md"
-    assert options == {"language": "zh-CN", "model": None}
+    assert options == {"language": "zh-CN", "model": None, "template_id": "career-deep-dive"}
     assert transient is None
 
 
@@ -65,10 +65,8 @@ async def test_markdown_analysis_bypasses_pdf_parsers(
     async def fake_synthesize(*args, **kwargs) -> ReportContent:
         return ReportContent(
             project_name="Project",
-            elevator_pitch="Pitch",
-            business_context="Context",
             architecture="Architecture",
-            star_narrative="STAR",
+            markdown="# Project\n\n## Analysis\n\nGrounded report [markdown-1]",
         )
 
     monkeypatch.setattr(analysis_module, "PdfParserService", fail_if_pdf_parser_is_created)
