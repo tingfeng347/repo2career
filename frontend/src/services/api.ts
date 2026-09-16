@@ -34,6 +34,14 @@ export type EvidenceBundle = {
   references: EvidenceRef[]
 }
 
+export type ReportTemplate = {
+  id: string
+  name: string
+  description: string
+  body: string
+  builtin: boolean
+}
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init)
   if (!response.ok) {
@@ -47,21 +55,28 @@ export const api = {
   jobs: () => request<Job[]>("/api/v1/analyses"),
   job: (id: string) => request<Job>(`/api/v1/analyses/${id}`),
   capabilities: () => request<Capabilities>("/api/v1/capabilities"),
+  templates: () => request<ReportTemplate[]>("/api/v1/report-templates"),
+  saveTemplate: (template: Pick<ReportTemplate, "name" | "description" | "body"> & { id?: string }) => request<ReportTemplate>("/api/v1/report-templates", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(template),
+  }),
+  deleteTemplate: (id: string) => request<{ template_id: string }>(`/api/v1/report-templates/${encodeURIComponent(id)}`, { method: "DELETE" }),
   settings: () => request<{ settings: Array<Record<string, string | boolean>> }>("/api/v1/settings"),
   updateSettings: (values: Record<string, string>) => request("/api/v1/settings", {
     method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ values }),
   }),
-  github: (repository_url: string, language: string) => request<{ job_id: string }>("/api/v1/analyses/github", {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ repository_url, language }),
+  github: (repository_url: string, language: string, template_id: string) => request<{ job_id: string }>("/api/v1/analyses/github", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ repository_url, language, template_id }),
   }),
-  localFolder: (path: string, language: string) => request<{ job_id: string }>("/api/v1/analyses/local-folder", {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path, language }),
+  localFolder: (path: string, language: string, template_id: string) => request<{ job_id: string }>("/api/v1/analyses/local-folder", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path, language, template_id }),
   }),
   upload: (kind: "pdf" | "markdown", data: FormData) => request<{ job_id: string }>(`/api/v1/analyses/${kind}`, { method: "POST", body: data }),
   cancel: (id: string) => request<Job>(`/api/v1/analyses/${id}/cancel`, { method: "POST" }),
   retry: (id: string) => request<Job>(`/api/v1/analyses/${id}/retry`, { method: "POST" }),
   delete: (id: string) => request<{ job_id: string }>(`/api/v1/analyses/${id}`, { method: "DELETE" }),
   report: async (id: string) => {
+    const traceResponse = await fetch(`/api/v1/analyses/${id}/artifacts/report.trace.md`)
+    if (traceResponse.ok) return traceResponse.text()
     const response = await fetch(`/api/v1/analyses/${id}/artifacts/report.md`)
     if (!response.ok) throw new Error("Report is not ready")
     return response.text()

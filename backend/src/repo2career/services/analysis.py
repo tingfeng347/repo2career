@@ -17,6 +17,7 @@ from repo2career.parsers.service import PdfParserService
 from repo2career.reports.archify import render_archify
 from repo2career.reports.render import render_report
 from repo2career.reports.schema import ReportManifest
+from repo2career.reports.templates import get_template
 
 Progress = Callable[[AnalysisStage, int, str], Awaitable[None]]
 
@@ -65,14 +66,19 @@ class AnalysisService:
         await progress(
             AnalysisStage.ANALYZING, 60, "Synthesizing grounded project findings with DeepSeek"
         )
+        template = get_template(job.options.get("template_id"), settings)
         content = await synthesize_report(
-            evidence, settings, job.options.get("language", "zh-CN"), job.options.get("model")
+            evidence,
+            settings,
+            job.options.get("language", "zh-CN"),
+            template,
+            job.options.get("model"),
         )
         await progress(AnalysisStage.DIAGRAMMING, 78, "Generating architecture artifacts")
         archify_used, archify_warning = await render_archify(content, report_dir, settings)
         if archify_warning:
             evidence.warnings.append(archify_warning)
-        await progress(AnalysisStage.COMPOSING, 88, "Composing fixed report bundle")
+        await progress(AnalysisStage.COMPOSING, 88, "Composing template-driven report bundle")
         manifest = ReportManifest(
             job_id=job.id,
             source_kind=job.source_kind,
@@ -81,6 +87,8 @@ class AnalysisService:
             parser=parser_name,
             codegraph_used=bool(evidence.codegraph_summary),
             archify_used=archify_used,
+            template_id=template.id,
+            template_name=template.name,
             warnings=evidence.warnings,
         )
         await asyncio.to_thread(render_report, content, evidence, manifest, report_dir)

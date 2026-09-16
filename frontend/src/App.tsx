@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { ArrowLeft, CircleAlert, FileText, Folder, Loader2, Plus, Settings, Sparkles, Trash2, X } from "lucide-react"
 import { CodeReportWorkbench } from "@/components/CodeReportWorkbench"
 import { DocumentReportWorkbench } from "@/components/DocumentReportWorkbench"
+import { ReportTemplateManager } from "@/components/ReportTemplateManager"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -58,6 +59,8 @@ export default function App() {
   const [githubUrl, setGithubUrl] = useState("")
   const [folderPath, setFolderPath] = useState("")
   const [language, setLanguage] = useState("zh-CN")
+  const [templateId, setTemplateId] = useState("career-deep-dive")
+  const [templatesOpen, setTemplatesOpen] = useState(false)
   const [notice, setNotice] = useState("")
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [deletingJob, setDeletingJob] = useState<Job | null>(null)
@@ -65,6 +68,7 @@ export default function App() {
 
   const jobs = useQuery({ queryKey: ["jobs"], queryFn: api.jobs, refetchInterval: 2500 })
   const capabilities = useQuery({ queryKey: ["capabilities"], queryFn: api.capabilities })
+  const templates = useQuery({ queryKey: ["report-templates"], queryFn: api.templates })
   const selected = useMemo(() => jobs.data?.find((job) => job.id === selectedId), [jobs.data, selectedId])
   const report = useQuery({
     queryKey: ["report", selectedId], queryFn: () => api.report(selectedId!),
@@ -113,7 +117,7 @@ export default function App() {
   const submitFolder = () => {
     const path = folderPath.trim()
     if (!path) return
-    createJob.mutate(() => api.localFolder(path, language))
+    createJob.mutate(() => api.localFolder(path, language, templateId))
   }
 
   const submitPdf = (file?: File) => {
@@ -122,6 +126,7 @@ export default function App() {
     data.append("file", file)
     data.append("language", language)
     data.append("parser", "auto")
+    data.append("template_id", templateId)
     createJob.mutate(() => api.upload("pdf", data))
   }
 
@@ -130,6 +135,7 @@ export default function App() {
     const data = new FormData()
     data.append("file", file)
     data.append("language", language)
+    data.append("template_id", templateId)
     createJob.mutate(() => api.upload("markdown", data))
   }
 
@@ -230,17 +236,33 @@ export default function App() {
                   <h1 className="font-heading mt-1 text-3xl font-semibold tracking-tight">选择一个项目来源</h1>
                   <p className="mt-2 text-sm text-muted-foreground">我们会整理其中的技术证据、项目亮点和面试材料。</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="report-language" className="text-xs">报告语言</Label>
-                  <select
-                    id="report-language"
-                    value={language}
-                    onChange={(event) => setLanguage(event.target.value)}
-                    className="h-8 rounded-lg border border-input bg-transparent px-2 pr-6 text-sm text-foreground outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
-                  >
-                    <option value="zh-CN">简体中文</option>
-                    <option value="en">English</option>
-                  </select>
+                <div className="flex flex-wrap items-end justify-end gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="report-language" className="text-xs">报告语言</Label>
+                    <select
+                      id="report-language"
+                      value={language}
+                      onChange={(event) => setLanguage(event.target.value)}
+                      className="h-8 rounded-lg border border-input bg-transparent px-2 pr-6 text-sm text-foreground outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+                    >
+                      <option value="zh-CN">简体中文</option>
+                      <option value="en">English</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="report-template" className="text-xs">报告模板</Label>
+                    <div className="flex gap-1.5">
+                      <select
+                        id="report-template"
+                        value={templateId}
+                        onChange={(event) => setTemplateId(event.target.value)}
+                        className="h-8 max-w-60 rounded-lg border border-input bg-transparent px-2 pr-6 text-sm text-foreground outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+                      >
+                        {(templates.data ?? []).map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
+                      </select>
+                      <Button variant="secondary" size="sm" onClick={() => setTemplatesOpen(true)}>管理</Button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -287,7 +309,7 @@ export default function App() {
                         onChange={(event) => setGithubUrl(event.target.value)}
                       />
                     </div>
-                    <Button disabled={!githubUrl || createJob.isPending} onClick={() => createJob.mutate(() => api.github(githubUrl, language))}>
+                    <Button disabled={!githubUrl || createJob.isPending} onClick={() => createJob.mutate(() => api.github(githubUrl, language, templateId))}>
                       {createJob.isPending ? "正在提交…" : "开始分析"}
                     </Button>
                   </Tabs.Content>
@@ -485,6 +507,16 @@ export default function App() {
             </div>
           </section>
         </div>
+      )}
+
+      {templatesOpen && (
+        <ReportTemplateManager
+          templates={templates.data ?? []}
+          selectedId={templateId}
+          onSelect={setTemplateId}
+          onChanged={() => templates.refetch()}
+          onClose={() => setTemplatesOpen(false)}
+        />
       )}
     </main>
   )

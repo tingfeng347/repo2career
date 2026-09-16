@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import shutil
+import stat
+import time
 import zipfile
 from pathlib import Path, PurePosixPath
 
@@ -9,6 +12,33 @@ from anyio import open_file
 from fastapi import UploadFile
 
 from repo2career.core.config import Settings
+
+
+def remove_path(path: Path, *, attempts: int = 6, delay: float = 0.1) -> None:
+    """Remove a file tree reliably, including Windows Git working trees.
+
+    Git pack/index files may be read-only or briefly held by another process on
+    Windows. Clear restrictive attributes and retry transient permission errors.
+    """
+    if not path.exists():
+        return
+
+    def handle_remove_error(func, filename, _exc_info) -> None:
+        os.chmod(filename, stat.S_IWRITE | stat.S_IREAD)
+        func(filename)
+
+    for attempt in range(attempts):
+        try:
+            if path.is_dir():
+                shutil.rmtree(path, onerror=handle_remove_error)
+            else:
+                path.chmod(stat.S_IWRITE | stat.S_IREAD)
+                path.unlink(missing_ok=True)
+            return
+        except PermissionError:
+            if attempt + 1 >= attempts:
+                raise
+            time.sleep(delay * (2**attempt))
 
 EXCLUDED_PARTS = {
     ".git",

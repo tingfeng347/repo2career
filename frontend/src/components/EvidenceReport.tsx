@@ -1,7 +1,7 @@
 import { useMemo } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { evidenceLabel, evidenceStyle, linkEvidenceCitations, type EvidenceRef } from "./evidence"
+import { evidenceStyle, linkEvidenceMetadata, type EvidenceRef } from "./evidence"
 
 type Props = {
   report: string
@@ -12,7 +12,7 @@ type Props = {
 
 export function EvidenceReport({ report, references, activeEvidenceId, onEvidenceSelect }: Props) {
   const linkedReport = useMemo(
-    () => linkEvidenceCitations(report, references),
+    () => linkEvidenceMetadata(report, references),
     [report, references],
   )
   const referenceMap = useMemo(
@@ -34,12 +34,13 @@ export function EvidenceReport({ report, references, activeEvidenceId, onEvidenc
             <button
               type="button"
               className="evidence-citation"
+              aria-label="查看证据"
               data-active={activeEvidenceId === reference.id}
               style={evidenceStyle(reference.id)}
-              title={`${evidenceLabel(reference)}：${reference.excerpt.slice(0, 120)}`}
+              title="查看证据"
               onClick={() => onEvidenceSelect(reference)}
             >
-              {evidenceLabel(reference)}
+              ↗
             </button>
           )
         },
